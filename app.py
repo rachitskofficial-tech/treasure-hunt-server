@@ -18,7 +18,19 @@ IST = ZoneInfo('Asia/Kolkata')
 
 MESSAGES = {
     'wrong': 'Better luck next time :(',
-    'clue': 'The food will be great over here, but the chef has something to tell you 👀'
+    'clue': 'The food will be great over here, but the chef has something to tell you 👀',
+    'clue2': 'Always around your neck, I check for this small plastic badge every morning to let you in. Who am I?',
+    'clue3': 'I hold no hardcover, yet I change every week or month. I sit where glossy pages rest, filled with pictures and bold words.',
+    'clue4': 'I hold news, events, and lost items galore, yet keep a secret behind my frame. Look past the papers pinned to my wood, and you’ll find what you seek in the very same.'
+}
+
+ROUTES = tuple(MESSAGES.keys())
+ROUTE_LABELS = {
+    'wrong': 'Wrong QR',
+    'clue': 'Clue 1',
+    'clue2': 'Clue 2',
+    'clue3': 'Clue 3',
+    'clue4': 'Clue 4'
 }
 
 
@@ -151,6 +163,24 @@ def clue():
     return render_template('message.html', message=MESSAGES['clue'], title='You Found a Clue')
 
 
+@app.route('/clue2')
+def clue2():
+    record_scan('clue2')
+    return render_template('message.html', message=MESSAGES['clue2'], title='Clue 2')
+
+
+@app.route('/clue3')
+def clue3():
+    record_scan('clue3')
+    return render_template('message.html', message=MESSAGES['clue3'], title='Clue 3')
+
+
+@app.route('/clue4')
+def clue4():
+    record_scan('clue4')
+    return render_template('message.html', message=MESSAGES['clue4'], title='Clue 4')
+
+
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     error = None
@@ -179,7 +209,7 @@ def get_dashboard_data():
         SELECT route, scanned_at, device, browser
         FROM scans ORDER BY id DESC LIMIT 50
     ''').fetchall()
-    for route in ('wrong', 'clue'):
+    for route in ROUTES:
         totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
         uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM scans WHERE route=?', (route,)).fetchone()[0]
     return totals, uniques, recent
@@ -198,7 +228,13 @@ def admin_dashboard():
         }
         for row in recent
     ]
-    return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent_display)
+    return render_template(
+        'dashboard.html',
+        totals=totals,
+        uniques=uniques,
+        recent=recent_display,
+        route_labels=ROUTE_LABELS
+    )
 
 
 @app.route('/admin/stats')
