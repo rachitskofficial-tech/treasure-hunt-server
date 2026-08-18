@@ -19,7 +19,7 @@ IST = ZoneInfo('Asia/Kolkata')
 MESSAGES = {
     'wrong': 'Better luck next time :(',
     'wrong2': 'Oops 😅 wrong QR...... Keep finding 🔎',
-    'wrong3': 'EUREKA!!!!! 🏆🎉 Wrong QR againn... -_-',
+    'wrong3': 'EUREKA!!!!! 🏆🎉 Wrong QR againn... 😐',
     'clue': 'The food will be great over here, but the chef has something to tell you 👀',
     'clue2': 'Always around your neck, I check for this small plastic badge every morning to let you in. Who am I?',
     'clue3': 'I hold no hardcover, yet I change every week or month. I sit where glossy pages rest, filled with pictures and bold words.',
