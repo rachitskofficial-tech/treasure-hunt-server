@@ -3,10 +3,9 @@ import sqlite3
 import hashlib
 import time
 import secrets
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, g, jsonify
-from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
@@ -14,7 +13,7 @@ DB_PATH = os.environ.get('DB_PATH', 'scans.db')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'NIK-TH-2026')
 ADMIN_SESSION_TIMEOUT = int(os.environ.get('ADMIN_SESSION_TIMEOUT', '1800'))
 ADMIN_AUTH_VERSION = secrets.token_hex(16)
-IST = ZoneInfo('Asia/Kolkata')
+IST = timezone(timedelta(hours=5, minutes=30), name='IST')
 
 MESSAGES = {
     'wrong': 'Better luck next time :(',
@@ -157,7 +156,7 @@ def admin_required(view):
         session_active = isinstance(last_activity, (int, float)) and now - last_activity < ADMIN_SESSION_TIMEOUT
         if not (authenticated and same_server_session and session_active):
             session.clear()
-            return redirect(url_for('admin_login', next=request.path))
+            return redirect('/admin/login?next=' + request.path)
         session['last_activity'] = now
         return view(*args, **kwargs)
     return wrapped
@@ -193,8 +192,6 @@ def get_test_sections(routes):
     return sections
 
 
-# -------------------- TEST DASHBOARDS --------------------
-
 @app.route('/wrong')
 def wrong_test_dashboard():
     return render_template('test_wrong.html', sections=get_test_sections(FAKE_ROUTES))
@@ -208,21 +205,20 @@ def clue_test_dashboard():
 @app.route('/wrong/<route>')
 def wrong_test_section(route):
     if route not in FAKE_ROUTES:
-        return redirect(url_for('wrong_test_dashboard'))
+        return redirect('/wrong')
     return render_scan(route, 'test_scans', test=True)
 
 
 @app.route('/clue/<route>')
 def clue_test_section(route):
     if route not in CLUE_ROUTES:
-        return redirect(url_for('clue_test_dashboard'))
+        return redirect('/clue')
     return render_scan(route, 'test_scans', test=True)
 
 
-# Backward-compatible sandbox paths
 @app.route('/test/wrong')
 def test_wrong():
-    return redirect(url_for('wrong_test_dashboard'))
+    return redirect('/wrong')
 
 
 @app.route('/test/wrong2')
@@ -237,12 +233,12 @@ def test_wrong3():
 
 @app.route('/test/wrong/<route>')
 def test_wrong_section(route):
-    return redirect(url_for('wrong_test_section', route=route))
+    return redirect('/wrong/' + route)
 
 
 @app.route('/test/clue')
 def test_clue():
-    return redirect(url_for('clue_test_dashboard'))
+    return redirect('/clue')
 
 
 @app.route('/test/clue2')
@@ -262,10 +258,8 @@ def test_clue4():
 
 @app.route('/test/clue/<route>')
 def test_clue_section(route):
-    return redirect(url_for('clue_test_section', route=route))
+    return redirect('/clue/' + route)
 
-
-# -------------------- REAL EVENT ROUTES --------------------
 
 @app.route('/event/wrong')
 def event_wrong():
@@ -302,8 +296,6 @@ def event_clue4():
     return render_scan('clue4', 'event_scans')
 
 
-# -------------------- ADMIN --------------------
-
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
     error = None
@@ -313,7 +305,7 @@ def admin_login():
             session['admin'] = True
             session['auth_version'] = ADMIN_AUTH_VERSION
             session['last_activity'] = time.time()
-            return redirect(request.args.get('next') or url_for('admin_dashboard'))
+            return redirect('/admin')
         error = 'Incorrect password.'
     return render_template('login.html', error=error)
 
@@ -321,7 +313,7 @@ def admin_login():
 @app.route('/admin/logout')
 def admin_logout():
     session.clear()
-    return redirect(url_for('admin_login'))
+    return redirect('/admin/login')
 
 
 def get_event_dashboard_data():
