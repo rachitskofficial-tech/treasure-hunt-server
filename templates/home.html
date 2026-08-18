@@ -1,7 +1,54 @@
 {% extends 'base.html' %}{% block content %}
 <style>
-  body{background:#070b16!important;padding:20px!important}
-  .hub{width:min(1180px,100%);margin:auto}.hub-head{padding:12px 4px 26px}.eyebrow{color:#8190b4;font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase}.title{margin:8px 0 10px!important;font-size:clamp(38px,6vw,64px)!important;color:#f8fbff!important;letter-spacing:-.04em}.sub{margin:0!important;color:#98a5c4!important;font-size:15px!important;max-width:760px;line-height:1.6!important}.hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.hub-card{display:block;text-decoration:none;color:#f8fbff;border-radius:24px;padding:24px;min-height:240px;border:1px solid;background:#101827;transition:transform .15s ease,border-color .15s ease,background .15s ease}.hub-card:hover{transform:translateY(-3px);background:#131e32}.hub-card.wrong{border-color:#5b2630;background:linear-gradient(180deg,#2b1318,#1d1116)}.hub-card.clue{border-color:#1f4a39;background:linear-gradient(180deg,#10251c,#0d1b17)}.hub-card.admin{border-color:#33435f;background:linear-gradient(180deg,#172033,#101827)}.hub-icon{font-size:34px}.hub-kicker{margin-top:18px;font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;opacity:.7}.hub-name{margin-top:6px;font-size:27px;font-weight:900}.hub-desc{margin-top:10px;color:#a9b2c8;font-size:13px;line-height:1.55}.hub-link{display:inline-block;margin-top:18px;padding:9px 12px;border-radius:11px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);font-size:12px;font-weight:800}.server-note{margin-top:18px;color:#6f7c98;font-size:11px}@media(max-width:900px){.hub-grid{grid-template-columns:1fr}}
+  .hub{max-width:1100px;margin:0 auto;text-align:center}
+  .eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#7f8ba8}
+  .title{margin:10px 0 12px;font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-.05em}
+  .subtitle{margin:0 auto;max-width:720px;color:#aab3c9;font-size:16px;line-height:1.6}
+  .hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:34px;text-align:left}
+  .hub-card{display:block;text-decoration:none;color:#f8fbff;border-radius:24px;padding:24px;min-height:250px;position:relative;overflow:hidden;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
+  .hub-card:hover{transform:translateY(-4px)}
+  .hub-card.test-wrong{background:linear-gradient(180deg,#32151c,#1c1015);border:1px solid #6b2e3a}
+  .hub-card.test-clue{background:linear-gradient(180deg,#10291f,#0c1915);border:1px solid #24513e}
+  .hub-card.admin{background:linear-gradient(180deg,#18233a,#0d1424);border:1px solid #344768}
+  .hub-number{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;opacity:.65}
+  .hub-icon{font-size:34px;margin-top:14px}
+  .hub-title{font-size:25px;font-weight:900;margin-top:10px}
+  .hub-desc{font-size:13px;line-height:1.6;color:#aeb7cb;margin-top:8px}
+  .hub-route{position:absolute;bottom:22px;left:24px;right:24px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#8f9bb5;font-weight:800}
+  .hub-footer{margin-top:24px;color:#697694;font-size:11px}
+  @media(max-width:900px){.hub-grid{grid-template-columns:1fr}}
 </style>
-<div class="hub"><div class="hub-head"><div class="eyebrow">Treasure Hunt Server 🗺️</div><h1 class="title">One Server. Three Control Sections.</h1><p class="sub">Everything runs from this single Render service. Testing is isolated from live event tracking, while the admin control room shows only real event scans.</p></div><div class="hub-grid"><a class="hub-card wrong" href="/wrong"><div class="hub-icon">🧪</div><div class="hub-kicker">Test Section 01</div><div class="hub-name">Test Wrong QR</div><div class="hub-desc">Three fake-QR sections with their own test-run history.</div><span class="hub-link">Open test dashboard →</span></a><a class="hub-card clue" href="/clue"><div class="hub-icon">🔎</div><div class="hub-kicker">Test Section 02</div><div class="hub-name">Test Clue QR</div><div class="hub-desc">Four clue sections: Canteen, ID Card, Magazine and Notice Board.</div><span class="hub-link">Open test dashboard →</span></a><a class="hub-card admin" href="/admin"><div class="hub-icon">🔐</div><div class="hub-kicker">Live Section 03</div><div class="hub-name">Admin Dashboard</div><div class="hub-desc">Treasure Hunt Control Room with live event scans, IST, device, browser and Times Rec.</div><span class="hub-link">Open control room →</span></a></div><div class="server-note">Single deployment: https://treasure-hunt-server.onrender.com</div></div>
+<div class="hub">
+  <div class="eyebrow">Treasure Hunt Server</div>
+  <h1 class="title">Command Hub 🗺️</h1>
+  <p class="subtitle">One server. Three clean destinations. Testing stays in the sandbox, while the admin console watches only the live event.</p>
+
+  <div class="hub-grid">
+    <a class="hub-card test-wrong" href="/wrong">
+      <div class="hub-number">01 · TESTING</div>
+      <div class="hub-icon">🧪</div>
+      <div class="hub-title">Test Wrong QR</div>
+      <div class="hub-desc">Run and review the three fake-QR test sections without touching live event data.</div>
+      <div class="hub-route">/wrong</div>
+    </a>
+
+    <a class="hub-card test-clue" href="/clue">
+      <div class="hub-number">02 · TESTING</div>
+      <div class="hub-icon">🔎</div>
+      <div class="hub-title">Test Clue QR</div>
+      <div class="hub-desc">Test Canteen, ID Card, Magazine, and Notice Board in their own sandbox sections.</div>
+      <div class="hub-route">/clue</div>
+    </a>
+
+    <a class="hub-card admin" href="/admin">
+      <div class="hub-number">03 · LIVE CONTROL</div>
+      <div class="hub-icon">🎛️</div>
+      <div class="hub-title">Admin Dashboard</div>
+      <div class="hub-desc">Open the Treasure Hunt Control Room and monitor only real event scans.</div>
+      <div class="hub-route">/admin · password protected</div>
+    </a>
+  </div>
+
+  <div class="hub-footer">Single Render server · Test data and live event data remain separated.</div>
+</div>
 {% endblock %}
