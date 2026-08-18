@@ -226,7 +226,10 @@ def test_wrong3():
 
 @app.route('/test/clue')
 def test_clue():
-    return serve_route('clue', test=True)
+    # /test/clue is the sandbox hub. Only Section 1 records a scan after explicit selection.
+    if request.args.get('section') == '1':
+        return serve_route('clue', test=True)
+    return render_template('test_clues.html')
 
 
 @app.route('/test/clue2')
