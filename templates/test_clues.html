@@ -1,49 +1,21 @@
 {% extends 'base.html' %}{% block content %}
 <style>
-  .test-shell { text-align:center; }
-  .test-badge { display:inline-block; padding:7px 11px; border-radius:999px; background:#10251c; border:1px solid #1f4a39; color:#7df2bd; font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; }
-  .test-title { margin:16px 0 8px; font-size:clamp(34px,7vw,54px); }
-  .test-subtitle { margin:0 auto 24px; max-width:650px; color:#98a5c4; font-size:15px; line-height:1.6; }
-  .section-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; text-align:left; }
-  .section-card { display:block; text-decoration:none; color:#f8fbff; background:#0f172a; border:1px solid #263553; border-radius:18px; padding:20px; transition:transform .16s ease,border-color .16s ease,background .16s ease; }
-  .section-card:hover { transform:translateY(-2px); border-color:#4b658f; background:#131e35; }
-  .number { font-size:11px; color:#7e8ba8; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
-  .section-name { margin-top:7px; font-size:22px; font-weight:850; }
-  .section-keyword { margin-top:9px; display:inline-block; padding:5px 9px; border-radius:999px; background:#18243d; color:#b8c4dd; font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }
-  .section-note { margin-top:12px; color:#8f9ab5; font-size:12px; }
-  .back { margin-top:20px; }
-  @media (max-width:650px){ .section-grid{grid-template-columns:1fr;} }
+  .test-shell{text-align:center}.test-badge{display:inline-block;padding:7px 11px;border-radius:999px;background:#10251c;border:1px solid #1f4a39;color:#7df2bd;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.test-title{margin:16px 0 8px;font-size:clamp(34px,7vw,54px)}.test-subtitle{margin:0 auto 24px;max-width:720px;color:#98a5c4;font-size:15px;line-height:1.6}.section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;text-align:left}.section-card{display:block;text-decoration:none;color:#f8fbff;background:#0f172a;border:1px solid #263553;border-radius:18px;padding:20px;transition:transform .16s ease,border-color .16s ease,background .16s ease}.section-card:hover{transform:translateY(-2px);border-color:#4b658f;background:#131e35}.number{font-size:11px;color:#7e8ba8;font-weight:800;letter-spacing:.12em;text-transform:uppercase}.section-name{margin-top:7px;font-size:22px;font-weight:850}.section-keyword{margin-top:9px;display:inline-block;padding:5px 9px;border-radius:999px;background:#18243d;color:#b8c4dd;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em}.stats{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}.stat-chip{padding:6px 9px;border-radius:999px;background:#121d31;border:1px solid #253551;color:#b8c4dd;font-size:10px;font-weight:800}.section-note{margin-top:12px;color:#8f9ab5;font-size:12px}.back{margin-top:20px}@media(max-width:650px){.section-grid{grid-template-columns:1fr}}
 </style>
 <div class="test-shell">
   <div class="test-badge">Safe Sandbox</div>
   <h1 class="test-title">🧪 Test Clue QR</h1>
-  <p class="test-subtitle">Choose a clue section to test it. Only the selected test clue records a sandbox scan. These tests never affect the real event counters.</p>
-
+  <p class="test-subtitle">Choose a clue section to run its sandbox test. Test history stays inside this sandbox and never appears in the real event dashboard.</p>
   <div class="section-grid">
-    <a class="section-card" href="{{ url_for('test_clue') }}?section=1">
-      <div class="number">Section 1</div>
-      <div class="section-name">Canteen</div>
-      <span class="section-keyword">Clue 1</span>
-      <div class="section-note">Test the Canteen clue scan</div>
+    {% for section in sections %}
+    <a class="section-card" href="{{ url_for('test_clue_section', route=section.route) }}">
+      <div class="number">Section {{ section.number }}</div>
+      <div class="section-name">{{ section.keyword }}</div>
+      <span class="section-keyword">{{ section.label }}</span>
+      <div class="stats"><span class="stat-chip">{{ section.total }} test run{{ '' if section.total == 1 else 's' }}</span><span class="stat-chip">Last: {{ section.last_scan }}</span></div>
+      <div class="section-note">Open this section to perform another test scan.</div>
     </a>
-    <a class="section-card" href="{{ url_for('test_clue2') }}">
-      <div class="number">Section 2</div>
-      <div class="section-name">ID Card</div>
-      <span class="section-keyword">Clue 2</span>
-      <div class="section-note">Test the ID Card clue scan</div>
-    </a>
-    <a class="section-card" href="{{ url_for('test_clue3') }}">
-      <div class="number">Section 3</div>
-      <div class="section-name">Magazine</div>
-      <span class="section-keyword">Clue 3</span>
-      <div class="section-note">Test the Magazine clue scan</div>
-    </a>
-    <a class="section-card" href="{{ url_for('test_clue4') }}">
-      <div class="number">Section 4</div>
-      <div class="section-name">Notice Board</div>
-      <span class="section-keyword">Clue 4</span>
-      <div class="section-note">Test the Notice Board clue scan</div>
-    </a>
+    {% endfor %}
   </div>
   <div class="back"><a class="btn" href="{{ url_for('admin_dashboard') }}">Back to dashboard</a></div>
 </div>
