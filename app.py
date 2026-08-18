@@ -1,6 +1,8 @@
 import os
 import sqlite3
 import hashlib
+import time
+import secrets
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, g, jsonify
@@ -10,6 +12,8 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
 DB_PATH = os.environ.get('DB_PATH', 'scans.db')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'NIK-TH-2026')
+ADMIN_SESSION_TIMEOUT = int(os.environ.get('ADMIN_SESSION_TIMEOUT', '1800'))  # 30 minutes
+ADMIN_AUTH_VERSION = secrets.token_hex(16)
 IST = ZoneInfo('Asia/Kolkata')
 
 MESSAGES = {
@@ -115,8 +119,17 @@ def format_ist(iso_timestamp):
 def admin_required(view):
     @wraps(view)
     def wrapped(*args, **kwargs):
-        if not session.get('admin'):
+        now = time.time()
+        authenticated = session.get('admin') is True
+        same_server_session = session.get('auth_version') == ADMIN_AUTH_VERSION
+        last_activity = session.get('last_activity', 0)
+        session_active = isinstance(last_activity, (int, float)) and now - last_activity < ADMIN_SESSION_TIMEOUT
+
+        if not (authenticated and same_server_session and session_active):
+            session.clear()
             return redirect(url_for('admin_login', next=request.path))
+
+        session['last_activity'] = now
         return view(*args, **kwargs)
     return wrapped
 
@@ -143,7 +156,10 @@ def admin_login():
     error = None
     if request.method == 'POST':
         if request.form.get('password') == ADMIN_PASSWORD:
+            session.clear()
             session['admin'] = True
+            session['auth_version'] = ADMIN_AUTH_VERSION
+            session['last_activity'] = time.time()
             return redirect(request.args.get('next') or url_for('admin_dashboard'))
         error = 'Incorrect password.'
     return render_template('login.html', error=error)
