@@ -65,7 +65,7 @@ def admin_required(view):
     return wrapped
 
 
-@app.route('/')
+@app.route('/', methods=['GET', 'HEAD'])
 def home():
     return render_template('home.html')
 
