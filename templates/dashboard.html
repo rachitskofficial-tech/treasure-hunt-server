@@ -1,38 +1,219 @@
 {% extends 'base.html' %}{% block content %}
-<div class="row" style="justify-content:space-between"><div><div class="small">TREASURE HUNT CONTROL ROOM</div><h1 style="font-size:42px">Scan Dashboard</h1></div><a class="btn" href="{{ url_for('admin_logout') }}">Log out</a></div>
-<div class="grid">
-{% for route in totals %}
-  <div class="stat"><div class="label">{{ route_labels.get(route, route) }} · total scans</div><b id="{{ route }}-total">{{ totals[route] }}</b><div class="muted">Approx. unique visitors: <span id="{{ route }}-unique">{{ uniques[route] }}</span></div></div>
-{% endfor %}
+<style>
+  .scan-layout {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+    margin-top: 20px;
+  }
+  .scan-panel {
+    border-radius: 18px;
+    padding: 18px;
+    border: 1px solid rgba(0,0,0,.06);
+  }
+  .scan-panel.clues {
+    background: #ecfdf3;
+    border-color: #bbf7d0;
+  }
+  .scan-panel.fakes {
+    background: #fff1f2;
+    border-color: #fecdd3;
+  }
+  .panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .panel-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .panel-subtitle {
+    margin: 4px 0 0;
+    font-size: 13px;
+    opacity: .72;
+  }
+  .route-count {
+    min-width: 42px;
+    padding: 8px 12px;
+    border-radius: 999px;
+    text-align: center;
+    font-weight: 700;
+    background: rgba(255,255,255,.75);
+  }
+  .route-grid {
+    display: grid;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .route-card {
+    background: rgba(255,255,255,.78);
+    border-radius: 12px;
+    padding: 12px 14px;
+    border: 1px solid rgba(0,0,0,.05);
+  }
+  .route-card .route-name {
+    font-weight: 650;
+  }
+  .route-card .route-total {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-top: 4px;
+  }
+  .route-card .route-unique {
+    font-size: 12px;
+    opacity: .7;
+    margin-top: 3px;
+  }
+  .scan-list {
+    background: rgba(255,255,255,.68);
+    border-radius: 12px;
+    overflow: hidden;
+    border: 1px solid rgba(0,0,0,.05);
+  }
+  .scan-list table {
+    width: 100%;
+    margin: 0;
+  }
+  .scan-list th,
+  .scan-list td {
+    font-size: 12px;
+  }
+  .empty-state {
+    padding: 18px;
+    text-align: center;
+    opacity: .6;
+    font-size: 13px;
+  }
+  @media (max-width: 900px) {
+    .scan-layout { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="row" style="justify-content:space-between">
+  <div>
+    <div class="small">TREASURE HUNT CONTROL ROOM</div>
+    <h1 style="font-size:42px">Scan Dashboard</h1>
+  </div>
+  <a class="btn" href="{{ url_for('admin_logout') }}">Log out</a>
 </div>
-<p class="small">Live updates are enabled. The dashboard checks for new scans every 2 seconds. “Unique visitors” is approximate and privacy-friendly. It is based on a hashed IP + user-agent, not stored raw.</p>
-<table><thead><tr><th>Route</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead><tbody id="recent-scans">{% for row in recent %}<tr><td>{{ route_labels.get(row['route'], row['route']) }}</td><td>{{ row['scanned_at'] }}</td><td>{{ row['device'] }}</td><td>{{ row['browser'] }}</td></tr>{% else %}<tr><td colspan="4">No scans yet.</td></tr>{% endfor %}</tbody></table>
+
+<p class="small">Live updates are enabled. The dashboard checks for new scans every 2 seconds. Times are shown in IST. Device/browser details are detected from the scan request, and unique visitors are approximate and privacy-friendly.</p>
+
+<div class="scan-layout">
+  <section class="scan-panel clues">
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">🟢 Original Clues</h2>
+        <p class="panel-subtitle">Valid treasure-hunt clue routes</p>
+      </div>
+      <div class="route-count" id="clue-grand-total">0</div>
+    </div>
+
+    <div class="route-grid">
+      {% for route in ['clue', 'clue2', 'clue3', 'clue4'] %}
+      <div class="route-card">
+        <div class="route-name">{{ route_labels.get(route, route) }}</div>
+        <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
+        <div class="route-unique">Approx. unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="scan-list">
+      <table>
+        <thead><tr><th>Clue</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead>
+        <tbody id="clue-scans"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="scan-panel fakes">
+    <div class="panel-head">
+      <div>
+        <h2 class="panel-title">🔴 Fake QRs</h2>
+        <p class="panel-subtitle">Decoy / wrong QR routes</p>
+      </div>
+      <div class="route-count" id="fake-grand-total">0</div>
+    </div>
+
+    <div class="route-grid">
+      {% for route in ['wrong', 'wrong2', 'wrong3'] %}
+      <div class="route-card">
+        <div class="route-name">{{ route_labels.get(route, route) }}</div>
+        <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
+        <div class="route-unique">Approx. unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="scan-list">
+      <table>
+        <thead><tr><th>Fake QR</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead>
+        <tbody id="fake-scans"></tbody>
+      </table>
+    </div>
+  </section>
+</div>
+
 <script>
+const clueRoutes = ['clue', 'clue2', 'clue3', 'clue4'];
+const fakeRoutes = ['wrong', 'wrong2', 'wrong3'];
+const routeLabels = {{ route_labels | tojson }};
+
+function renderRows(containerId, rows, emptyText) {
+  const tbody = document.getElementById(containerId);
+  if (!rows.length) {
+    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">${emptyText}</div></td></tr>`;
+    return;
+  }
+  tbody.innerHTML = rows.map(row =>
+    `<tr>
+      <td>${routeLabels[row.route] || row.route}</td>
+      <td>${row.scanned_at}</td>
+      <td>${row.device}</td>
+      <td>${row.browser}</td>
+    </tr>`
+  ).join('');
+}
+
+function updateTotals(data) {
+  Object.keys(data.totals).forEach(route => {
+    const total = document.getElementById(`${route}-total`);
+    const unique = document.getElementById(`${route}-unique`);
+    if (total) total.textContent = data.totals[route];
+    if (unique) unique.textContent = data.uniques[route];
+  });
+
+  const clueGrandTotal = clueRoutes.reduce((sum, route) => sum + (data.totals[route] || 0), 0);
+  const fakeGrandTotal = fakeRoutes.reduce((sum, route) => sum + (data.totals[route] || 0), 0);
+  document.getElementById('clue-grand-total').textContent = clueGrandTotal;
+  document.getElementById('fake-grand-total').textContent = fakeGrandTotal;
+}
+
 async function updateDashboard() {
   try {
     const response = await fetch('{{ url_for("admin_stats") }}', {cache: 'no-store'});
     if (!response.ok) return;
     const data = await response.json();
-    Object.keys(data.totals).forEach(route => {
-      const total = document.getElementById(`${route}-total`);
-      const unique = document.getElementById(`${route}-unique`);
-      if (total) total.textContent = data.totals[route];
-      if (unique) unique.textContent = data.uniques[route];
-    });
 
-    const tbody = document.getElementById('recent-scans');
-    if (!data.recent.length) {
-      tbody.innerHTML = '<tr><td colspan="4">No scans yet.</td></tr>';
-      return;
-    }
-    tbody.innerHTML = data.recent.map(row =>
-      `<tr><td>${row.route}</td><td>${row.scanned_at}</td><td>${row.device}</td><td>${row.browser}</td></tr>`
-    ).join('');
+    updateTotals(data);
+
+    const clueRows = data.recent.filter(row => clueRoutes.includes(row.route));
+    const fakeRows = data.recent.filter(row => fakeRoutes.includes(row.route));
+
+    renderRows('clue-scans', clueRows, 'No clue scans yet.');
+    renderRows('fake-scans', fakeRows, 'No fake QR scans yet.');
   } catch (error) {
     console.log('Dashboard update failed:', error);
   }
 }
 
+updateDashboard();
 setInterval(updateDashboard, 2000);
 </script>
 {% endblock %}
