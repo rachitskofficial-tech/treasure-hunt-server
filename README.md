@@ -1,6 +1,9 @@
 # Treasure Hunt Server 🗺️
 
-QR tracking server for the college treasure hunt.
+**One Render server. Three separate dashboards. One shared deployment.**
+
+Live server:
+`https://treasure-hunt-server.onrender.com`
 
 ## Separate dashboards
 
@@ -8,30 +11,30 @@ QR tracking server for the college treasure hunt.
 
 ### 🧪 Test Wrong QR
 
-Open **Test wrong QR** for the three fake-QR test sections:
+Open **Test wrong QR** for the three fake-QR test sections. All test runs stay in the `test_scans` table.
 
 | Section | Keyword | Test route |
 |---|---|---|
-| **Section 1** | **Wrong QR** | `/wrong/section/wrong` |
-| **Section 2** | **Keep Finding** | `/wrong/section/wrong2` |
-| **Section 3** | **Eureka? Nope** | `/wrong/section/wrong3` |
+| **Section 1** | **Wrong QR** | `/wrong/wrong` |
+| **Section 2** | **Keep Finding** | `/wrong/wrong2` |
+| **Section 3** | **Eureka? Nope** | `/wrong/wrong3` |
 
 ### 🧪 Test Clue QR
 
-Open **Test clue QR** for the four clue test sections:
+Open **Test clue QR** for the four clue test sections. All test runs stay in the `test_scans` table.
 
 | Section | Keyword | Test route |
 |---|---|---|
-| **Section 1** | **Canteen** | `/clue/section/clue` |
-| **Section 2** | **ID Card** | `/clue/section/clue2` |
-| **Section 3** | **Magazine** | `/clue/section/clue3` |
-| **Section 4** | **Notice Board** | `/clue/section/clue4` |
+| **Section 1** | **Canteen** | `/clue/clue` |
+| **Section 2** | **ID Card** | `/clue/clue2` |
+| **Section 3** | **Magazine** | `/clue/clue3` |
+| **Section 4** | **Notice Board** | `/clue/clue4` |
 
-Every section keeps its own test-run history inside the sandbox.
+Every section keeps its own test-run history, last scan time, device, browser, and run count.
 
 ## 🏁 Live event QR routes
 
-The real QR codes must use the `/event/...` routes. These write to `event_scans` and are the only scans shown in the admin dashboard.
+The real QR codes use the same Render server with the `/event/...` routes. These write to `event_scans` and are the only scans shown in the admin dashboard.
 
 ### 🟢 Original Clues
 
@@ -52,9 +55,9 @@ The real QR codes must use the `/event/...` routes. These write to `event_scans`
 
 ## 🔐 Admin dashboard
 
-`/admin` is the **Treasure Hunt Control Room / Live Scan Command Center**.
+[**Open Treasure Hunt Control Room**](https://treasure-hunt-server.onrender.com/admin)
 
-It contains only live event data:
+`/admin` contains only live event data:
 - 🟢 Original Clues
 - 🔴 Fake QRs
 - IST timestamps
@@ -62,7 +65,7 @@ It contains only live event data:
 - Approximate unique visitors
 - Repeated scan counts (`Times Rec.`)
 
-Test dashboards and test runs do not appear here.
+Test dashboards and test runs do **not** appear here.
 
 ## Run locally
 ```bash
@@ -84,10 +87,8 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://localhost:5000/admin` to test the live-event dashboard.
-
 ## Deploy publicly
-Use a Python-capable host such as Render. Start command:
+Use one Python-capable host such as Render for the entire application. Start command:
 
 ```bash
 gunicorn app:app
