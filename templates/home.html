@@ -1,10 +1,9 @@
 {% extends 'base.html' %}{% block content %}
 <style>
-  .hub{max-width:1100px;margin:0 auto;text-align:center}
-  .eyebrow{font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;color:#7f8ba8}
-  .title{margin:10px 0 12px;font-size:clamp(42px,7vw,76px);line-height:.98;letter-spacing:-.05em}
-  .subtitle{margin:0 auto;max-width:720px;color:#aab3c9;font-size:16px;line-height:1.6}
-  .hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:34px;text-align:left}
+  .hub{width:100%;max-width:1120px;margin:0 auto;text-align:center;padding:8px 0 4px}
+  .title{margin:0 auto;font-size:clamp(34px,6vw,64px);line-height:1.02;letter-spacing:-.045em;max-width:900px}
+  .subtitle{margin:14px auto 0;max-width:760px;color:#aab3c9;font-size:15px;line-height:1.6}
+  .hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:30px;text-align:left}
   .hub-card{display:block;text-decoration:none;color:#f8fbff;border-radius:24px;padding:24px;min-height:250px;position:relative;overflow:hidden;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
   .hub-card:hover{transform:translateY(-4px)}
   .hub-card.test-wrong{background:linear-gradient(180deg,#32151c,#1c1015);border:1px solid #6b2e3a}
@@ -13,13 +12,12 @@
   .hub-number{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;opacity:.65}
   .hub-icon{font-size:34px;margin-top:14px}
   .hub-title{font-size:25px;font-weight:900;margin-top:10px}
-  .hub-desc{font-size:13px;line-height:1.6;color:#aeb7cb;margin-top:8px}
+  .hub-desc{font-size:13px;line-height:1.6;color:#aeb7cb;margin-top:8px;max-width:34ch}
   .hub-route{position:absolute;bottom:22px;left:24px;right:24px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#8f9bb5;font-weight:800}
   .hub-footer{margin-top:24px;color:#697694;font-size:11px}
-  @media(max-width:900px){.hub-grid{grid-template-columns:1fr}}
+  @media(max-width:900px){.hub-grid{grid-template-columns:1fr}.hub-card{min-height:220px}}
 </style>
 <div class="hub">
-  <div class="eyebrow">Treasure Hunt Server</div>
   <h1 class="title">Command Hub 🗺️</h1>
   <p class="subtitle">One server. Three clean destinations. Testing stays in the sandbox, while the admin console watches only the live event.</p>
 
