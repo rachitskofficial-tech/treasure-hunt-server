@@ -1,9 +1,35 @@
 {% extends 'base.html' %}{% block content %}
 <div class="row" style="justify-content:space-between"><div><div class="small">TREASURE HUNT CONTROL ROOM</div><h1 style="font-size:42px">Scan Dashboard</h1></div><a class="btn" href="{{ url_for('admin_logout') }}">Log out</a></div>
 <div class="grid">
-  <div class="stat"><div class="label">Wrong QR · total scans</div><b>{{ totals.wrong }}</b><div class="muted">Approx. unique visitors: {{ uniques.wrong }}</div></div>
-  <div class="stat"><div class="label">Clue QR · total scans</div><b>{{ totals.clue }}</b><div class="muted">Approx. unique visitors: {{ uniques.clue }}</div></div>
+  <div class="stat"><div class="label">Wrong QR · total scans</div><b id="wrong-total">{{ totals.wrong }}</b><div class="muted">Approx. unique visitors: <span id="wrong-unique">{{ uniques.wrong }}</span></div></div>
+  <div class="stat"><div class="label">Clue QR · total scans</div><b id="clue-total">{{ totals.clue }}</b><div class="muted">Approx. unique visitors: <span id="clue-unique">{{ uniques.clue }}</span></div></div>
 </div>
-<p class="small">“Unique visitors” is approximate and privacy-friendly. It is based on a hashed IP + user-agent, not stored raw.</p>
-<table><thead><tr><th>Route</th><th>Time (UTC)</th></tr></thead><tbody>{% for row in recent %}<tr><td>{{ row['route'] }}</td><td>{{ row['scanned_at'] }}</td></tr>{% else %}<tr><td colspan="2">No scans yet.</td></tr>{% endfor %}</tbody></table>
+<p class="small">Live updates are enabled. The dashboard checks for new scans every 2 seconds. “Unique visitors” is approximate and privacy-friendly. It is based on a hashed IP + user-agent, not stored raw.</p>
+<table><thead><tr><th>Route</th><th>Time (UTC)</th></tr></thead><tbody id="recent-scans">{% for row in recent %}<tr><td>{{ row['route'] }}</td><td>{{ row['scanned_at'] }}</td></tr>{% else %}<tr><td colspan="2">No scans yet.</td></tr>{% endfor %}</tbody></table>
+<script>
+async function updateDashboard() {
+  try {
+    const response = await fetch('{{ url_for("admin_stats") }}', {cache: 'no-store'});
+    if (!response.ok) return;
+    const data = await response.json();
+    document.getElementById('wrong-total').textContent = data.totals.wrong;
+    document.getElementById('wrong-unique').textContent = data.uniques.wrong;
+    document.getElementById('clue-total').textContent = data.totals.clue;
+    document.getElementById('clue-unique').textContent = data.uniques.clue;
+
+    const tbody = document.getElementById('recent-scans');
+    if (!data.recent.length) {
+      tbody.innerHTML = '<tr><td colspan="2">No scans yet.</td></tr>';
+      return;
+    }
+    tbody.innerHTML = data.recent.map(row =>
+      `<tr><td>${row.route}</td><td>${row.scanned_at}</td></tr>`
+    ).join('');
+  } catch (error) {
+    console.log('Dashboard update failed:', error);
+  }
+}
+
+setInterval(updateDashboard, 2000);
+</script>
 {% endblock %}
