@@ -211,7 +211,9 @@ def clue4():
 
 @app.route('/test/wrong')
 def test_wrong():
-    return serve_route('wrong', test=True)
+    if request.args.get('section') == '1':
+        return serve_route('wrong', test=True)
+    return render_template('test_wrongs.html')
 
 
 @app.route('/test/wrong2')
@@ -226,7 +228,6 @@ def test_wrong3():
 
 @app.route('/test/clue')
 def test_clue():
-    # /test/clue is the sandbox hub. Only Section 1 records a scan after explicit selection.
     if request.args.get('section') == '1':
         return serve_route('clue', test=True)
     return render_template('test_clues.html')
@@ -293,30 +294,10 @@ def get_dashboard_data():
     return totals, uniques, recent
 
 
-def get_test_dashboard_data():
-    db = get_db()
-    recent = db.execute('''
-        SELECT
-            route,
-            visitor_hash,
-            MAX(scanned_at) AS scanned_at,
-            COUNT(*) AS times_recorded,
-            MAX(device) AS device,
-            MAX(browser) AS browser
-        FROM test_scans
-        GROUP BY route, visitor_hash
-        ORDER BY MAX(id) DESC
-        LIMIT 30
-    ''').fetchall()
-    total = db.execute('SELECT COUNT(*) FROM test_scans').fetchone()[0]
-    return total, recent
-
-
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
     totals, uniques, recent = get_dashboard_data()
-    test_total, test_recent = get_test_dashboard_data()
     recent_display = [
         {
             'route': row['route'],
@@ -327,24 +308,12 @@ def admin_dashboard():
         }
         for row in recent
     ]
-    test_recent_display = [
-        {
-            'route': row['route'],
-            'scanned_at': format_ist(row['scanned_at']),
-            'device': row['device'],
-            'browser': row['browser'],
-            'times_recorded': row['times_recorded']
-        }
-        for row in test_recent
-    ]
     return render_template(
         'dashboard.html',
         totals=totals,
         uniques=uniques,
         recent=recent_display,
-        route_labels=ROUTE_LABELS,
-        test_total=test_total,
-        test_recent=test_recent_display
+        route_labels=ROUTE_LABELS
     )
 
 
@@ -352,7 +321,6 @@ def admin_dashboard():
 @admin_required
 def admin_stats():
     totals, uniques, recent = get_dashboard_data()
-    test_total, test_recent = get_test_dashboard_data()
     return jsonify({
         'totals': totals,
         'uniques': uniques,
@@ -365,17 +333,6 @@ def admin_stats():
                 'times_recorded': row['times_recorded']
             }
             for row in recent
-        ],
-        'test_total': test_total,
-        'test_recent': [
-            {
-                'route': row['route'],
-                'scanned_at': format_ist(row['scanned_at']),
-                'device': row['device'],
-                'browser': row['browser'],
-                'times_recorded': row['times_recorded']
-            }
-            for row in test_recent
         ]
     })
 
