@@ -4,11 +4,13 @@ import hashlib
 from datetime import datetime, timezone
 from functools import wraps
 from flask import Flask, render_template, request, redirect, url_for, session, g, jsonify
+from zoneinfo import ZoneInfo
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
 DB_PATH = os.environ.get('DB_PATH', 'scans.db')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'NIK-TH-2026')
+IST = ZoneInfo('Asia/Kolkata')
 
 MESSAGES = {
     'wrong': 'Better luck next time :(',
@@ -54,6 +56,16 @@ def record_scan(route):
         (route, datetime.now(timezone.utc).isoformat(), visitor_hash())
     )
     db.commit()
+
+
+def format_ist(iso_timestamp):
+    try:
+        dt = datetime.fromisoformat(iso_timestamp)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(IST).strftime('%d %b %Y, %I:%M:%S %p')
+    except (TypeError, ValueError):
+        return iso_timestamp
 
 
 def admin_required(view):
@@ -116,7 +128,11 @@ def get_dashboard_data():
 @admin_required
 def admin_dashboard():
     totals, uniques, recent = get_dashboard_data()
-    return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent)
+    recent_display = [
+        {'route': row['route'], 'scanned_at': format_ist(row['scanned_at'])}
+        for row in recent
+    ]
+    return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent_display)
 
 
 @app.route('/admin/stats')
@@ -127,7 +143,7 @@ def admin_stats():
         'totals': totals,
         'uniques': uniques,
         'recent': [
-            {'route': row['route'], 'scanned_at': row['scanned_at']}
+            {'route': row['route'], 'scanned_at': format_ist(row['scanned_at'])}
             for row in recent
         ]
     })
