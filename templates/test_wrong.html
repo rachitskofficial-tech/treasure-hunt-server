@@ -8,7 +8,7 @@
   <p class="test-subtitle">Three fake-QR sections live here. Each section keeps its own test-run history and repeat count. Nothing here affects the Live Scan Command Center.</p>
   <div class="section-grid">
     {% for section in sections %}
-    <a class="section-card" href="{{ url_for('wrong_test_section', route=section.route) }}">
+    <a class="section-card" href="/wrong/{{ section.route }}">
       <div class="number">Section {{ section.number }}</div>
       <div class="section-name">{{ section.label }}</div>
       <span class="section-keyword">{{ section.keyword }}</span>
@@ -17,6 +17,6 @@
     </a>
     {% endfor %}
   </div>
-  <div class="back"><a class="btn" href="{{ url_for('admin_dashboard') }}">Admin dashboard</a></div>
+  <div class="back"><a class="btn" href="/admin">Admin dashboard</a></div>
 </div>
 {% endblock %}
