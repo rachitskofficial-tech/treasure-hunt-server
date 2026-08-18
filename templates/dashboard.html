@@ -1,163 +1,260 @@
 {% extends 'base.html' %}{% block content %}
 <style>
-  .scan-layout {
+  body {
+    display: block !important;
+    background: #070b16 !important;
+    padding: 24px !important;
+  }
+  .card.dashboard-card {
+    width: min(1400px, 100%) !important;
+    max-width: 1400px !important;
+    margin: 0 auto !important;
+    padding: 28px !important;
+    background: #0d1324 !important;
+    border: 1px solid #202b45 !important;
+    box-shadow: 0 24px 80px rgba(0,0,0,.42) !important;
+  }
+  .dashboard-shell { width: 100%; }
+  .dashboard-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 20px;
+    padding-bottom: 18px;
+    border-bottom: 1px solid #202b45;
+  }
+  .eyebrow {
+    color: #8390b2;
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+  }
+  .dashboard-title {
+    margin: 6px 0 0 !important;
+    font-size: clamp(34px, 5vw, 54px) !important;
+    color: #f8fbff !important;
+    letter-spacing: -.04em;
+  }
+  .dashboard-subtitle {
+    max-width: 760px;
+    margin: 10px 0 0 !important;
+    color: #98a5c4 !important;
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+  .live-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid #24453a;
+    background: #0c241b;
+    color: #7df2bd;
+    padding: 9px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 800;
+    white-space: nowrap;
+  }
+  .live-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #4ade80;
+    box-shadow: 0 0 14px rgba(74,222,128,.8);
+  }
+  .dashboard-btn {
+    margin-top: 10px !important;
+    background: #161f35 !important;
+    color: #f8fbff !important;
+    border: 1px solid #2b3856 !important;
+  }
+  .panels {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 18px;
-    margin-top: 20px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 20px;
+    margin-top: 22px;
   }
-  .scan-panel {
-    border-radius: 18px;
-    padding: 18px;
-    border: 1px solid rgba(0,0,0,.06);
+  .panel {
+    border-radius: 24px;
+    padding: 20px;
+    overflow: hidden;
   }
-  .scan-panel.clues {
-    background: #ecfdf3;
-    border-color: #bbf7d0;
+  .panel.clues {
+    background: linear-gradient(180deg, #10251c 0%, #0d1b17 100%);
+    border: 1px solid #1f4a39;
   }
-  .scan-panel.fakes {
-    background: #fff1f2;
-    border-color: #fecdd3;
+  .panel.fakes {
+    background: linear-gradient(180deg, #2b1318 0%, #211016 100%);
+    border: 1px solid #5b2630;
   }
   .panel-head {
     display: flex;
-    align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    margin-bottom: 14px;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
   }
-  .panel-title {
-    font-size: 22px;
-    font-weight: 700;
-    margin: 0;
-  }
-  .panel-subtitle {
-    margin: 4px 0 0;
-    font-size: 13px;
+  .panel-kicker {
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .13em;
+    text-transform: uppercase;
     opacity: .72;
   }
-  .route-count {
-    min-width: 42px;
-    padding: 8px 12px;
-    border-radius: 999px;
-    text-align: center;
-    font-weight: 700;
-    background: rgba(255,255,255,.75);
+  .panel-title {
+    margin: 3px 0 0 !important;
+    font-size: 25px !important;
+    color: #fff !important;
   }
+  .panel-desc {
+    margin: 4px 0 0 !important;
+    color: #a9b2c8 !important;
+    font-size: 13px !important;
+  }
+  .grand-total {
+    min-width: 76px;
+    padding: 12px 14px;
+    text-align: center;
+    border-radius: 16px;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.09);
+  }
+  .grand-total b { display:block; font-size: 26px; color:#fff; }
+  .grand-total span { display:block; font-size:10px; color:#9da8c2; margin-top:2px; text-transform:uppercase; letter-spacing:.08em; }
   .route-grid {
     display: grid;
+    grid-template-columns: repeat(2, minmax(0,1fr));
     gap: 10px;
     margin-bottom: 16px;
   }
   .route-card {
-    background: rgba(255,255,255,.78);
-    border-radius: 12px;
-    padding: 12px 14px;
-    border: 1px solid rgba(0,0,0,.05);
+    background: rgba(5,10,19,.38);
+    border: 1px solid rgba(255,255,255,.07);
+    border-radius: 16px;
+    padding: 14px;
   }
-  .route-card .route-name {
-    font-weight: 650;
-  }
-  .route-card .route-total {
-    font-size: 28px;
-    font-weight: 800;
-    line-height: 1.1;
-    margin-top: 4px;
-  }
-  .route-card .route-unique {
-    font-size: 12px;
-    opacity: .7;
-    margin-top: 3px;
-  }
-  .scan-list {
-    background: rgba(255,255,255,.68);
-    border-radius: 12px;
-    overflow: hidden;
-    border: 1px solid rgba(0,0,0,.05);
-  }
-  .scan-list table {
-    width: 100%;
-    margin: 0;
-  }
-  .scan-list th,
-  .scan-list td {
-    font-size: 12px;
-  }
-  .empty-state {
-    padding: 18px;
-    text-align: center;
-    opacity: .6;
+  .route-name {
+    color: #dce4f6;
     font-size: 13px;
+    font-weight: 800;
   }
-  @media (max-width: 900px) {
-    .scan-layout { grid-template-columns: 1fr; }
+  .route-total { margin-top: 7px; font-size: 30px; font-weight: 900; color:#fff; }
+  .route-unique { margin-top: 4px; color:#94a0bb; font-size:11px; }
+  .recent-wrap {
+    border-radius: 18px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,.07);
+    background: rgba(4,8,15,.34);
+  }
+  .recent-header {
+    padding: 12px 14px;
+    border-bottom: 1px solid rgba(255,255,255,.06);
+    color: #dce4f6;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .09em;
+  }
+  .recent-wrap table { margin:0 !important; }
+  .recent-wrap th { color:#8f9ab5 !important; font-size:10px !important; text-transform:uppercase; letter-spacing:.08em; }
+  .recent-wrap td { color:#d9e0ee !important; font-size:12px !important; }
+  .recent-wrap th, .recent-wrap td { padding:10px 12px !important; }
+  .recent-wrap tr:last-child td { border-bottom:0 !important; }
+  .empty-state { padding: 22px; text-align:center; color:#78849f; font-size:12px; }
+  .footer-note { margin: 16px 0 0; color:#707d99; font-size:11px; }
+  @media (max-width: 950px) {
+    .panels { grid-template-columns: 1fr; }
+  }
+  @media (max-width: 620px) {
+    body { padding: 12px !important; }
+    .card.dashboard-card { padding: 18px !important; }
+    .dashboard-top { flex-direction: column; }
+    .route-grid { grid-template-columns: 1fr; }
   }
 </style>
 
-<div class="row" style="justify-content:space-between">
-  <div>
-    <div class="small">TREASURE HUNT CONTROL ROOM</div>
-    <h1 style="font-size:42px">Scan Dashboard</h1>
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const card = document.querySelector('main.card');
+  if (card) card.classList.add('dashboard-card');
+});
+</script>
+
+<div class="dashboard-shell">
+  <div class="dashboard-top">
+    <div>
+      <div class="eyebrow">Treasure Hunt Control Room</div>
+      <h1 class="dashboard-title">Live Scan Command Center</h1>
+      <p class="dashboard-subtitle">Track valid clue discoveries and decoy QR hits separately. Everything below updates automatically every 2 seconds.</p>
+    </div>
+    <div style="text-align:right">
+      <div class="live-pill"><span class="live-dot"></span> LIVE MONITORING</div>
+      <div><a class="btn dashboard-btn" href="{{ url_for('admin_logout') }}">Log out</a></div>
+    </div>
   </div>
-  <a class="btn" href="{{ url_for('admin_logout') }}">Log out</a>
-</div>
 
-<p class="small">Live updates are enabled. The dashboard checks for new scans every 2 seconds. Times are shown in IST. Device/browser details are detected from the scan request, and unique visitors are approximate and privacy-friendly.</p>
-
-<div class="scan-layout">
-  <section class="scan-panel clues">
-    <div class="panel-head">
-      <div>
-        <h2 class="panel-title">🟢 Original Clues</h2>
-        <p class="panel-subtitle">Valid treasure-hunt clue routes</p>
+  <div class="panels">
+    <section class="panel clues">
+      <div class="panel-head">
+        <div>
+          <div class="panel-kicker" style="color:#5ee6a8">Valid routes</div>
+          <h2 class="panel-title">🟢 Original Clues</h2>
+          <p class="panel-desc">Real treasure-hunt checkpoints</p>
+        </div>
+        <div class="grand-total"><b id="clue-grand-total">0</b><span>Total scans</span></div>
       </div>
-      <div class="route-count" id="clue-grand-total">0</div>
-    </div>
 
-    <div class="route-grid">
-      {% for route in ['clue', 'clue2', 'clue3', 'clue4'] %}
-      <div class="route-card">
-        <div class="route-name">{{ route_labels.get(route, route) }}</div>
-        <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
-        <div class="route-unique">Approx. unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
+      <div class="route-grid">
+        {% for route in ['clue', 'clue2', 'clue3', 'clue4'] %}
+        <div class="route-card">
+          <div class="route-name">{{ route_labels.get(route, route) }}</div>
+          <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
+          <div class="route-unique">Unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
+        </div>
+        {% endfor %}
       </div>
-      {% endfor %}
-    </div>
 
-    <div class="scan-list">
-      <table>
-        <thead><tr><th>Clue</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead>
-        <tbody id="clue-scans"></tbody>
-      </table>
-    </div>
-  </section>
-
-  <section class="scan-panel fakes">
-    <div class="panel-head">
-      <div>
-        <h2 class="panel-title">🔴 Fake QRs</h2>
-        <p class="panel-subtitle">Decoy / wrong QR routes</p>
+      <div class="recent-wrap">
+        <div class="recent-header">Recent clue scans</div>
+        <table>
+          <thead><tr><th>Clue</th><th>Time IST</th><th>Device</th><th>Browser</th></tr></thead>
+          <tbody id="clue-scans"></tbody>
+        </table>
       </div>
-      <div class="route-count" id="fake-grand-total">0</div>
-    </div>
+    </section>
 
-    <div class="route-grid">
-      {% for route in ['wrong', 'wrong2', 'wrong3'] %}
-      <div class="route-card">
-        <div class="route-name">{{ route_labels.get(route, route) }}</div>
-        <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
-        <div class="route-unique">Approx. unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
+    <section class="panel fakes">
+      <div class="panel-head">
+        <div>
+          <div class="panel-kicker" style="color:#ff9aab">Decoy routes</div>
+          <h2 class="panel-title">🔴 Fake QRs</h2>
+          <p class="panel-desc">Wrong / bait QR checkpoints</p>
+        </div>
+        <div class="grand-total"><b id="fake-grand-total">0</b><span>Total scans</span></div>
       </div>
-      {% endfor %}
-    </div>
 
-    <div class="scan-list">
-      <table>
-        <thead><tr><th>Fake QR</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead>
-        <tbody id="fake-scans"></tbody>
-      </table>
-    </div>
-  </section>
+      <div class="route-grid">
+        {% for route in ['wrong', 'wrong2', 'wrong3'] %}
+        <div class="route-card">
+          <div class="route-name">{{ route_labels.get(route, route) }}</div>
+          <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
+          <div class="route-unique">Unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="recent-wrap">
+        <div class="recent-header">Recent fake QR scans</div>
+        <table>
+          <thead><tr><th>Fake QR</th><th>Time IST</th><th>Device</th><th>Browser</th></tr></thead>
+          <tbody id="fake-scans"></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <p class="footer-note">Times are shown in IST. Device and browser are inferred from the scan request. Unique visitors are approximate and privacy-friendly.</p>
 </div>
 
 <script>
@@ -189,10 +286,8 @@ function updateTotals(data) {
     if (unique) unique.textContent = data.uniques[route];
   });
 
-  const clueGrandTotal = clueRoutes.reduce((sum, route) => sum + (data.totals[route] || 0), 0);
-  const fakeGrandTotal = fakeRoutes.reduce((sum, route) => sum + (data.totals[route] || 0), 0);
-  document.getElementById('clue-grand-total').textContent = clueGrandTotal;
-  document.getElementById('fake-grand-total').textContent = fakeGrandTotal;
+  document.getElementById('clue-grand-total').textContent = clueRoutes.reduce((sum, route) => sum + (data.totals[route] || 0), 0);
+  document.getElementById('fake-grand-total').textContent = fakeRoutes.reduce((sum, route) => sum + (data.totals[route] || 0), 0);
 }
 
 async function updateDashboard() {
@@ -200,14 +295,9 @@ async function updateDashboard() {
     const response = await fetch('{{ url_for("admin_stats") }}', {cache: 'no-store'});
     if (!response.ok) return;
     const data = await response.json();
-
     updateTotals(data);
-
-    const clueRows = data.recent.filter(row => clueRoutes.includes(row.route));
-    const fakeRows = data.recent.filter(row => fakeRoutes.includes(row.route));
-
-    renderRows('clue-scans', clueRows, 'No clue scans yet.');
-    renderRows('fake-scans', fakeRows, 'No fake QR scans yet.');
+    renderRows('clue-scans', data.recent.filter(row => clueRoutes.includes(row.route)), 'No clue scans yet.');
+    renderRows('fake-scans', data.recent.filter(row => fakeRoutes.includes(row.route)), 'No fake QR scans yet.');
   } catch (error) {
     console.log('Dashboard update failed:', error);
   }
