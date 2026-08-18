@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block content %}
+<div class="small">TREASURE HUNT</div>
+<h1>{{ message }}</h1>
+<p>{{ 'This QR code was not the one you were looking for.' if title == 'Try Again' else 'Keep going. There is more to uncover.' }}</p>
+{% endblock %}

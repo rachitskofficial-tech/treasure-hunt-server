@@ -1,0 +1,14 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ title or 'Treasure Hunt' }}</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#0b1020;color:#f6f7fb;min-height:100vh;display:grid;place-items:center;padding:24px}.card{width:min(720px,100%);background:rgba(20,27,49,.92);border:1px solid rgba(255,255,255,.1);border-radius:28px;padding:36px;box-shadow:0 20px 70px rgba(0,0,0,.35)}h1{font-size:clamp(32px,7vw,64px);line-height:1.05;margin:0 0 14px}p{color:#b8c0d9;font-size:18px;line-height:1.6}.small{font-size:13px;color:#7e88a7}.btn{display:inline-block;margin-top:18px;padding:12px 18px;border-radius:12px;background:#fff;color:#111;text-decoration:none;font-weight:700}table{width:100%;border-collapse:collapse;margin-top:20px}th,td{text-align:left;padding:11px;border-bottom:1px solid rgba(255,255,255,.08)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;margin:22px 0}.stat{background:#0f1528;border:1px solid rgba(255,255,255,.08);border-radius:18px;padding:20px}.stat b{font-size:34px}.label{font-size:13px;color:#8791b1}.error{color:#ff9c9c}.input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #39425d;background:#0d1324;color:#fff;font-size:16px}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.muted{color:#8c95af}
+  </style>
+</head>
+<body>
+  <main class="card">{% block content %}{% endblock %}</main>
+</body>
+</html>

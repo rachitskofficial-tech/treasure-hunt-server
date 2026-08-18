@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block content %}
+<h1>Treasure Hunt Server 🗺️</h1>
+<p>QR routes are live when this app is deployed.</p>
+<div class="row"><a class="btn" href="{{ url_for('wrong') }}">Test wrong QR</a><a class="btn" href="{{ url_for('clue') }}">Test clue QR</a><a class="btn" href="{{ url_for('admin_dashboard') }}">Admin dashboard</a></div>
+{% endblock %}

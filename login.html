@@ -1,0 +1,5 @@
+{% extends 'base.html' %}{% block content %}
+<h1>Admin</h1><p>Enter the dashboard password.</p>
+<form method="post"><input class="input" type="password" name="password" placeholder="Password" required><button class="btn" type="submit">Open dashboard</button></form>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+{% endblock %}
