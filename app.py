@@ -27,6 +27,8 @@ MESSAGES = {
 }
 
 ROUTES = tuple(MESSAGES.keys())
+CLUE_ROUTES = ('clue', 'clue2', 'clue3', 'clue4')
+FAKE_ROUTES = ('wrong', 'wrong2', 'wrong3')
 ROUTE_LABELS = {
     'wrong': 'Wrong QR 1',
     'wrong2': 'Wrong QR 2',
@@ -44,6 +46,16 @@ def get_db():
         g.db.row_factory = sqlite3.Row
         g.db.execute('''
             CREATE TABLE IF NOT EXISTS scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                visitor_hash TEXT NOT NULL,
+                device TEXT NOT NULL DEFAULT 'Unknown',
+                browser TEXT NOT NULL DEFAULT 'Unknown'
+            )
+        ''')
+        g.db.execute('''
+            CREATE TABLE IF NOT EXISTS test_scans (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 route TEXT NOT NULL,
                 scanned_at TEXT NOT NULL,
@@ -110,11 +122,11 @@ def detect_device_and_browser():
     return device, browser
 
 
-def record_scan(route):
+def record_scan(route, table='scans'):
     db = get_db()
     device, browser = detect_device_and_browser()
     db.execute(
-        '''INSERT INTO scans
+        f'''INSERT INTO {table}
            (route, scanned_at, visitor_hash, device, browser)
            VALUES (?, ?, ?, ?, ?)''',
         (route, datetime.now(timezone.utc).isoformat(), visitor_hash(), device, browser)
@@ -155,46 +167,81 @@ def home():
     return render_template('home.html')
 
 
+def serve_route(route, test=False):
+    table = 'test_scans' if test else 'scans'
+    record_scan(route, table=table)
+    title = f'Test {ROUTE_LABELS.get(route, route)}' if test else ROUTE_LABELS.get(route, route)
+    return render_template('message.html', message=MESSAGES[route], title=title)
+
+
 @app.route('/wrong')
 def wrong():
-    record_scan('wrong')
-    return render_template('message.html', message=MESSAGES['wrong'], title='Try Again')
+    return serve_route('wrong')
 
 
 @app.route('/wrong2')
 def wrong2():
-    record_scan('wrong2')
-    return render_template('message.html', message=MESSAGES['wrong2'], title='Oops!')
+    return serve_route('wrong2')
 
 
 @app.route('/wrong3')
 def wrong3():
-    record_scan('wrong3')
-    return render_template('message.html', message=MESSAGES['wrong3'], title='Eureka!')
+    return serve_route('wrong3')
 
 
 @app.route('/clue')
 def clue():
-    record_scan('clue')
-    return render_template('message.html', message=MESSAGES['clue'], title='You Found a Clue')
+    return serve_route('clue')
 
 
 @app.route('/clue2')
 def clue2():
-    record_scan('clue2')
-    return render_template('message.html', message=MESSAGES['clue2'], title='Clue 2')
+    return serve_route('clue2')
 
 
 @app.route('/clue3')
 def clue3():
-    record_scan('clue3')
-    return render_template('message.html', message=MESSAGES['clue3'], title='Clue 3')
+    return serve_route('clue3')
 
 
 @app.route('/clue4')
 def clue4():
-    record_scan('clue4')
-    return render_template('message.html', message=MESSAGES['clue4'], title='Clue 4')
+    return serve_route('clue4')
+
+
+@app.route('/test/wrong')
+def test_wrong():
+    return serve_route('wrong', test=True)
+
+
+@app.route('/test/wrong2')
+def test_wrong2():
+    return serve_route('wrong2', test=True)
+
+
+@app.route('/test/wrong3')
+def test_wrong3():
+    return serve_route('wrong3', test=True)
+
+
+@app.route('/test/clue')
+def test_clue():
+    return serve_route('clue', test=True)
+
+
+@app.route('/test/clue2')
+def test_clue2():
+    return serve_route('clue2', test=True)
+
+
+@app.route('/test/clue3')
+def test_clue3():
+    return serve_route('clue3', test=True)
+
+
+@app.route('/test/clue4')
+def test_clue4():
+    return serve_route('clue4', test=True)
 
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -226,8 +273,6 @@ def get_dashboard_data():
         totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
         uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM scans WHERE route=?', (route,)).fetchone()[0]
 
-    # Keep the raw scan rows in SQLite, but compact repeated scans in the dashboard.
-    # Each row represents one route + approximate visitor combination, with the latest scan time and repeat count.
     recent = db.execute('''
         SELECT
             route,
@@ -245,10 +290,30 @@ def get_dashboard_data():
     return totals, uniques, recent
 
 
+def get_test_dashboard_data():
+    db = get_db()
+    recent = db.execute('''
+        SELECT
+            route,
+            visitor_hash,
+            MAX(scanned_at) AS scanned_at,
+            COUNT(*) AS times_recorded,
+            MAX(device) AS device,
+            MAX(browser) AS browser
+        FROM test_scans
+        GROUP BY route, visitor_hash
+        ORDER BY MAX(id) DESC
+        LIMIT 30
+    ''').fetchall()
+    total = db.execute('SELECT COUNT(*) FROM test_scans').fetchone()[0]
+    return total, recent
+
+
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
     totals, uniques, recent = get_dashboard_data()
+    test_total, test_recent = get_test_dashboard_data()
     recent_display = [
         {
             'route': row['route'],
@@ -259,12 +324,24 @@ def admin_dashboard():
         }
         for row in recent
     ]
+    test_recent_display = [
+        {
+            'route': row['route'],
+            'scanned_at': format_ist(row['scanned_at']),
+            'device': row['device'],
+            'browser': row['browser'],
+            'times_recorded': row['times_recorded']
+        }
+        for row in test_recent
+    ]
     return render_template(
         'dashboard.html',
         totals=totals,
         uniques=uniques,
         recent=recent_display,
-        route_labels=ROUTE_LABELS
+        route_labels=ROUTE_LABELS,
+        test_total=test_total,
+        test_recent=test_recent_display
     )
 
 
@@ -272,6 +349,7 @@ def admin_dashboard():
 @admin_required
 def admin_stats():
     totals, uniques, recent = get_dashboard_data()
+    test_total, test_recent = get_test_dashboard_data()
     return jsonify({
         'totals': totals,
         'uniques': uniques,
@@ -284,6 +362,17 @@ def admin_stats():
                 'times_recorded': row['times_recorded']
             }
             for row in recent
+        ],
+        'test_total': test_total,
+        'test_recent': [
+            {
+                'route': row['route'],
+                'scanned_at': format_ist(row['scanned_at']),
+                'device': row['device'],
+                'browser': row['browser'],
+                'times_recorded': row['times_recorded']
+            }
+            for row in test_recent
         ]
     })
 
