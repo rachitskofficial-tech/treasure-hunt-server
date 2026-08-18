@@ -5,7 +5,7 @@
   <div class="stat"><div class="label">Clue QR · total scans</div><b id="clue-total">{{ totals.clue }}</b><div class="muted">Approx. unique visitors: <span id="clue-unique">{{ uniques.clue }}</span></div></div>
 </div>
 <p class="small">Live updates are enabled. The dashboard checks for new scans every 2 seconds. “Unique visitors” is approximate and privacy-friendly. It is based on a hashed IP + user-agent, not stored raw.</p>
-<table><thead><tr><th>Route</th><th>Time (UTC)</th></tr></thead><tbody id="recent-scans">{% for row in recent %}<tr><td>{{ row['route'] }}</td><td>{{ row['scanned_at'] }}</td></tr>{% else %}<tr><td colspan="2">No scans yet.</td></tr>{% endfor %}</tbody></table>
+<table><thead><tr><th>Route</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead><tbody id="recent-scans">{% for row in recent %}<tr><td>{{ row['route'] }}</td><td>{{ row['scanned_at'] }}</td><td>{{ row['device'] }}</td><td>{{ row['browser'] }}</td></tr>{% else %}<tr><td colspan="4">No scans yet.</td></tr>{% endfor %}</tbody></table>
 <script>
 async function updateDashboard() {
   try {
@@ -19,11 +19,11 @@ async function updateDashboard() {
 
     const tbody = document.getElementById('recent-scans');
     if (!data.recent.length) {
-      tbody.innerHTML = '<tr><td colspan="2">No scans yet.</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4">No scans yet.</td></tr>';
       return;
     }
     tbody.innerHTML = data.recent.map(row =>
-      `<tr><td>${row.route}</td><td>${row.scanned_at}</td></tr>`
+      `<tr><td>${row.route}</td><td>${row.scanned_at}</td><td>${row.device}</td><td>${row.browser}</td></tr>`
     ).join('');
   } catch (error) {
     console.log('Dashboard update failed:', error);
