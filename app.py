@@ -3,7 +3,7 @@ import sqlite3
 import hashlib
 from datetime import datetime, timezone
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, g
+from flask import Flask, render_template, request, redirect, url_for, session, g, jsonify
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
@@ -99,9 +99,7 @@ def admin_logout():
     return redirect(url_for('admin_login'))
 
 
-@app.route('/admin')
-@admin_required
-def admin_dashboard():
+def get_dashboard_data():
     db = get_db()
     totals = {}
     uniques = {}
@@ -111,7 +109,28 @@ def admin_dashboard():
     for route in ('wrong', 'clue'):
         totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
         uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM scans WHERE route=?', (route,)).fetchone()[0]
+    return totals, uniques, recent
+
+
+@app.route('/admin')
+@admin_required
+def admin_dashboard():
+    totals, uniques, recent = get_dashboard_data()
     return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent)
+
+
+@app.route('/admin/stats')
+@admin_required
+def admin_stats():
+    totals, uniques, recent = get_dashboard_data()
+    return jsonify({
+        'totals': totals,
+        'uniques': uniques,
+        'recent': [
+            {'route': row['route'], 'scanned_at': row['scanned_at']}
+            for row in recent
+        ]
+    })
 
 
 @app.route('/health')
