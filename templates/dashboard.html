@@ -172,8 +172,19 @@
   .recent-wrap table { margin:0 !important; }
   .recent-wrap th { color:#8f9ab5 !important; font-size:10px !important; text-transform:uppercase; letter-spacing:.08em; }
   .recent-wrap td { color:#d9e0ee !important; font-size:12px !important; }
-  .recent-wrap th, .recent-wrap td { padding:10px 12px !important; }
+  .recent-wrap th, .recent-wrap td { padding:10px 10px !important; }
   .recent-wrap tr:last-child td { border-bottom:0 !important; }
+  .repeat-badge {
+    display: inline-flex;
+    min-width: 32px;
+    justify-content: center;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.08);
+    color: #f6f8ff;
+    font-size: 11px;
+    font-weight: 900;
+  }
   .empty-state { padding: 22px; text-align:center; color:#78849f; font-size:12px; }
   .footer-note { margin: 16px 0 0; color:#707d99; font-size:11px; }
   @media (max-width: 950px) {
@@ -199,7 +210,7 @@ document.addEventListener('DOMContentLoaded', () => {
     <div>
       <div class="eyebrow">Treasure Hunt Control Room</div>
       <h1 class="dashboard-title">Live Scan Command Center</h1>
-      <p class="dashboard-subtitle">Track valid clue discoveries and decoy QR hits separately. Everything below updates automatically every 2 seconds.</p>
+      <p class="dashboard-subtitle">Track valid clue discoveries and decoy QR hits separately. Repeated scans from the same approximate visitor and QR are compacted into one row while the raw scan history remains stored.</p>
     </div>
     <div style="text-align:right">
       <div class="live-pill"><span class="live-dot"></span> LIVE MONITORING</div>
@@ -233,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="recent-wrap">
         <div class="recent-header">Recent clue scans</div>
         <table>
-          <thead><tr><th>Clue</th><th>Time IST</th><th>Device</th><th>Browser</th></tr></thead>
+          <thead><tr><th>Clue</th><th>Last Scan IST</th><th>Device</th><th>Browser</th><th>Times Rec.</th></tr></thead>
           <tbody id="clue-scans"></tbody>
         </table>
       </div>
@@ -264,14 +275,14 @@ document.addEventListener('DOMContentLoaded', () => {
       <div class="recent-wrap">
         <div class="recent-header">Recent fake QR scans</div>
         <table>
-          <thead><tr><th>Fake QR</th><th>Time IST</th><th>Device</th><th>Browser</th></tr></thead>
+          <thead><tr><th>Fake QR</th><th>Last Scan IST</th><th>Device</th><th>Browser</th><th>Times Rec.</th></tr></thead>
           <tbody id="fake-scans"></tbody>
         </table>
       </div>
     </section>
   </div>
 
-  <p class="footer-note">Times are shown in IST. Device and browser are inferred from the scan request. Unique visitors are approximate and privacy-friendly.</p>
+  <p class="footer-note">Times are shown in IST. Device and browser are inferred from the scan request. Unique visitors are approximate and privacy-friendly. “Times Rec.” counts repeated scans for the same route and approximate visitor.</p>
 </div>
 
 <script>
@@ -282,7 +293,7 @@ const routeLabels = {{ route_labels | tojson }};
 function renderRows(containerId, rows, emptyText) {
   const tbody = document.getElementById(containerId);
   if (!rows.length) {
-    tbody.innerHTML = `<tr><td colspan="4"><div class="empty-state">${emptyText}</div></td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5"><div class="empty-state">${emptyText}</div></td></tr>`;
     return;
   }
   tbody.innerHTML = rows.map(row =>
@@ -291,6 +302,7 @@ function renderRows(containerId, rows, emptyText) {
       <td>${row.scanned_at}</td>
       <td>${row.device}</td>
       <td>${row.browser}</td>
+      <td><span class="repeat-badge">${row.times_recorded}×</span></td>
     </tr>`
   ).join('');
 }
