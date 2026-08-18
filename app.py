@@ -18,6 +18,8 @@ IST = ZoneInfo('Asia/Kolkata')
 
 MESSAGES = {
     'wrong': 'Better luck next time :(',
+    'wrong2': 'Oops 😅 wrong QR...... Keep finding 🔎',
+    'wrong3': 'EUREKA!!!!! 🏆🎉 Wrong QR againn... -_-',
     'clue': 'The food will be great over here, but the chef has something to tell you 👀',
     'clue2': 'Always around your neck, I check for this small plastic badge every morning to let you in. Who am I?',
     'clue3': 'I hold no hardcover, yet I change every week or month. I sit where glossy pages rest, filled with pictures and bold words.',
@@ -26,7 +28,9 @@ MESSAGES = {
 
 ROUTES = tuple(MESSAGES.keys())
 ROUTE_LABELS = {
-    'wrong': 'Wrong QR',
+    'wrong': 'Wrong QR 1',
+    'wrong2': 'Wrong QR 2',
+    'wrong3': 'Wrong QR 3',
     'clue': 'Clue 1',
     'clue2': 'Clue 2',
     'clue3': 'Clue 3',
@@ -155,6 +159,18 @@ def home():
 def wrong():
     record_scan('wrong')
     return render_template('message.html', message=MESSAGES['wrong'], title='Try Again')
+
+
+@app.route('/wrong2')
+def wrong2():
+    record_scan('wrong2')
+    return render_template('message.html', message=MESSAGES['wrong2'], title='Oops!')
+
+
+@app.route('/wrong3')
+def wrong3():
+    record_scan('wrong3')
+    return render_template('message.html', message=MESSAGES['wrong3'], title='Eureka!')
 
 
 @app.route('/clue')
