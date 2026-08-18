@@ -38,6 +38,15 @@ ROUTE_LABELS = {
     'clue3': 'Clue 3',
     'clue4': 'Clue 4'
 }
+KEYWORDS = {
+    'clue': 'Canteen',
+    'clue2': 'ID Card',
+    'clue3': 'Magazine',
+    'clue4': 'Notice Board',
+    'wrong': 'Wrong QR',
+    'wrong2': 'Keep Finding',
+    'wrong3': 'Eureka? Nope'
+}
 
 
 def get_db():
@@ -46,6 +55,16 @@ def get_db():
         g.db.row_factory = sqlite3.Row
         g.db.execute('''
             CREATE TABLE IF NOT EXISTS scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                route TEXT NOT NULL,
+                scanned_at TEXT NOT NULL,
+                visitor_hash TEXT NOT NULL,
+                device TEXT NOT NULL DEFAULT 'Unknown',
+                browser TEXT NOT NULL DEFAULT 'Unknown'
+            )
+        ''')
+        g.db.execute('''
+            CREATE TABLE IF NOT EXISTS event_scans (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 route TEXT NOT NULL,
                 scanned_at TEXT NOT NULL,
@@ -64,13 +83,41 @@ def get_db():
                 browser TEXT NOT NULL DEFAULT 'Unknown'
             )
         ''')
+        g.db.execute('''
+            CREATE TABLE IF NOT EXISTS system_flags (
+                name TEXT PRIMARY KEY,
+                value TEXT NOT NULL
+            )
+        ''')
         columns = {row['name'] for row in g.db.execute('PRAGMA table_info(scans)').fetchall()}
         if 'device' not in columns:
             g.db.execute("ALTER TABLE scans ADD COLUMN device TEXT NOT NULL DEFAULT 'Unknown'")
         if 'browser' not in columns:
             g.db.execute("ALTER TABLE scans ADD COLUMN browser TEXT NOT NULL DEFAULT 'Unknown'")
         g.db.commit()
+        migrate_legacy_scans_once(g.db)
     return g.db
+
+
+def migrate_legacy_scans_once(db):
+    flag = db.execute("SELECT value FROM system_flags WHERE name='legacy_scans_migrated'").fetchone()
+    if flag:
+        return
+
+    legacy_rows = db.execute('SELECT route, scanned_at, visitor_hash, device, browser FROM scans').fetchall()
+    if legacy_rows:
+        db.executemany(
+            '''INSERT INTO test_scans
+               (route, scanned_at, visitor_hash, device, browser)
+               VALUES (?, ?, ?, ?, ?)''',
+            [tuple(row) for row in legacy_rows]
+        )
+        db.execute('DELETE FROM scans')
+
+    db.execute(
+        "INSERT INTO system_flags(name, value) VALUES('legacy_scans_migrated', '1')"
+    )
+    db.commit()
 
 
 @app.teardown_appcontext
@@ -119,7 +166,7 @@ def detect_device_and_browser():
     return device, browser
 
 
-def record_scan(route, table='scans'):
+def record_scan(route, table):
     db = get_db()
     device, browser = detect_device_and_browser()
     db.execute(
@@ -162,125 +209,148 @@ def home():
     return render_template('home.html')
 
 
-def serve_route(route, test=False):
-    table = 'test_scans' if test else 'scans'
-    record_scan(route, table=table)
-    title = f'Test {ROUTE_LABELS.get(route, route)}' if test else ROUTE_LABELS.get(route, route)
-    return render_template('message.html', message=MESSAGES[route], title=title)
-
-
-@app.route('/wrong')
-def wrong():
-    return serve_route('wrong')
-
-
-@app.route('/wrong2')
-def wrong2():
-    return serve_route('wrong2')
-
-
-@app.route('/wrong3')
-def wrong3():
-    return serve_route('wrong3')
-
-
-@app.route('/clue')
-def clue():
-    return serve_route('clue')
-
-
-@app.route('/clue2')
-def clue2():
-    return serve_route('clue2')
-
-
-@app.route('/clue3')
-def clue3():
-    return serve_route('clue3')
-
-
-@app.route('/clue4')
-def clue4():
-    return serve_route('clue4')
-
-
-@app.route('/test/wrong')
-def test_wrong():
-    return render_template('test_wrong.html', sections=get_test_sections(FAKE_ROUTES))
-
-
-@app.route('/test/wrong/<route>')
-def test_wrong_section(route):
-    if route not in FAKE_ROUTES:
-        return redirect(url_for('test_wrong'))
-    return serve_route(route, test=True)
-
-
-@app.route('/test/wrong2')
-def test_wrong2():
-    return serve_route('wrong2', test=True)
-
-
-@app.route('/test/wrong3')
-def test_wrong3():
-    return serve_route('wrong3', test=True)
-
-
-@app.route('/test/clue')
-def test_clue():
-    return render_template('test_clues.html', sections=get_test_sections(CLUE_ROUTES))
-
-
-@app.route('/test/clue/<route>')
-def test_clue_section(route):
-    if route not in CLUE_ROUTES:
-        return redirect(url_for('test_clue'))
-    return serve_route(route, test=True)
-
-
-@app.route('/test/clue2')
-def test_clue2():
-    return redirect(url_for('test_clue_section', route='clue2'))
-
-
-@app.route('/test/clue3')
-def test_clue3():
-    return redirect(url_for('test_clue_section', route='clue3'))
-
-
-@app.route('/test/clue4')
-def test_clue4():
-    return redirect(url_for('test_clue_section', route='clue4'))
-
-
-def get_test_sections(routes):
+def test_dashboard_sections(routes, hub_name):
     db = get_db()
     sections = []
-    keywords = {
-        'clue': 'Canteen',
-        'clue2': 'ID Card',
-        'clue3': 'Magazine',
-        'clue4': 'Notice Board',
-        'wrong': 'Wrong QR',
-        'wrong2': 'Keep Finding',
-        'wrong3': 'Eureka? Nope'
-    }
     for index, route in enumerate(routes, start=1):
         row = db.execute('''
             SELECT COUNT(*) AS total, MAX(scanned_at) AS last_scan
             FROM test_scans WHERE route=?
         ''', (route,)).fetchone()
+        latest = db.execute('''
+            SELECT device, browser FROM test_scans
+            WHERE route=? ORDER BY id DESC LIMIT 1
+        ''', (route,)).fetchone()
         sections.append({
             'number': index,
             'route': route,
             'label': ROUTE_LABELS[route],
-            'keyword': keywords[route],
+            'keyword': KEYWORDS[route],
             'total': row['total'],
             'last_scan': format_ist(row['last_scan']) if row['last_scan'] else 'No test runs yet',
-            'device': (db.execute('SELECT device FROM test_scans WHERE route=? ORDER BY id DESC LIMIT 1', (route,)).fetchone() or {'device': 'None'})['device'],
-            'browser': (db.execute('SELECT browser FROM test_scans WHERE route=? ORDER BY id DESC LIMIT 1', (route,)).fetchone() or {'browser': 'None'})['browser']
+            'device': latest['device'] if latest else 'None',
+            'browser': latest['browser'] if latest else 'None',
+            'hub': hub_name
         })
     return sections
+
+
+def test_section(route, hub):
+    if route not in ROUTES:
+        return redirect(url_for(hub))
+    record_scan(route, 'test_scans')
+    return render_template('message.html', message=MESSAGES[route], title=f'Test {ROUTE_LABELS[route]}')
+
+
+def event_section(route):
+    if route not in ROUTES:
+        return redirect(url_for('home'))
+    record_scan(route, 'event_scans')
+    return render_template('message.html', message=MESSAGES[route], title=ROUTE_LABELS[route])
+
+
+# TEST DASHBOARD: /wrong
+@app.route('/wrong')
+def wrong_test_dashboard():
+    return render_template('test_wrong.html', sections=test_dashboard_sections(FAKE_ROUTES, 'wrong_test_dashboard'))
+
+
+@app.route('/wrong/section/<route>')
+def wrong_test_section(route):
+    return test_section(route, 'wrong_test_dashboard')
+
+
+# TEST DASHBOARD: /clue
+@app.route('/clue')
+def clue_test_dashboard():
+    return render_template('test_clues.html', sections=test_dashboard_sections(CLUE_ROUTES, 'clue_test_dashboard'))
+
+
+@app.route('/clue/section/<route>')
+def clue_test_section(route):
+    return test_section(route, 'clue_test_dashboard')
+
+
+# Backward-compatible test aliases
+@app.route('/test/wrong')
+def test_wrong_alias():
+    return redirect(url_for('wrong_test_dashboard'))
+
+
+@app.route('/test/wrong/<route>')
+def test_wrong_section_alias(route):
+    return redirect(url_for('wrong_test_section', route=route))
+
+
+@app.route('/test/wrong2')
+def test_wrong2_alias():
+    return redirect(url_for('wrong_test_section', route='wrong2'))
+
+
+@app.route('/test/wrong3')
+def test_wrong3_alias():
+    return redirect(url_for('wrong_test_section', route='wrong3'))
+
+
+@app.route('/test/clue')
+def test_clue_alias():
+    return redirect(url_for('clue_test_dashboard'))
+
+
+@app.route('/test/clue/<route>')
+def test_clue_section_alias(route):
+    return redirect(url_for('clue_test_section', route=route))
+
+
+@app.route('/test/clue2')
+def test_clue2_alias():
+    return redirect(url_for('clue_test_section', route='clue2'))
+
+
+@app.route('/test/clue3')
+def test_clue3_alias():
+    return redirect(url_for('clue_test_section', route='clue3'))
+
+
+@app.route('/test/clue4')
+def test_clue4_alias():
+    return redirect(url_for('clue_test_section', route='clue4'))
+
+
+# LIVE EVENT QR routes. These are the URLs to encode into the real QR codes.
+@app.route('/event/wrong')
+def event_wrong():
+    return event_section('wrong')
+
+
+@app.route('/event/wrong2')
+def event_wrong2():
+    return event_section('wrong2')
+
+
+@app.route('/event/wrong3')
+def event_wrong3():
+    return event_section('wrong3')
+
+
+@app.route('/event/clue')
+def event_clue():
+    return event_section('clue')
+
+
+@app.route('/event/clue2')
+def event_clue2():
+    return event_section('clue2')
+
+
+@app.route('/event/clue3')
+def event_clue3():
+    return event_section('clue3')
+
+
+@app.route('/event/clue4')
+def event_clue4():
+    return event_section('clue4')
 
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -308,12 +378,12 @@ def get_dashboard_data():
     totals = {}
     uniques = {}
     for route in ROUTES:
-        totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
-        uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM scans WHERE route=?', (route,)).fetchone()[0]
+        totals[route] = db.execute('SELECT COUNT(*) FROM event_scans WHERE route=?', (route,)).fetchone()[0]
+        uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM event_scans WHERE route=?', (route,)).fetchone()[0]
     recent = db.execute('''
         SELECT route, visitor_hash, MAX(scanned_at) AS scanned_at,
                COUNT(*) AS times_recorded, MAX(device) AS device, MAX(browser) AS browser
-        FROM scans
+        FROM event_scans
         GROUP BY route, visitor_hash
         ORDER BY MAX(id) DESC
         LIMIT 50
@@ -335,13 +405,7 @@ def admin_dashboard():
         }
         for row in recent
     ]
-    return render_template(
-        'dashboard.html',
-        totals=totals,
-        uniques=uniques,
-        recent=recent_display,
-        route_labels=ROUTE_LABELS
-    )
+    return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent_display, route_labels=ROUTE_LABELS)
 
 
 @app.route('/admin/stats')
