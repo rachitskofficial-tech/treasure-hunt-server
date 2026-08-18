@@ -1,12 +1,46 @@
-# Treasure Hunt QR Tracking Server
+# Treasure Hunt Server 🗺️
 
-A tiny Flask server for your college treasure hunt.
+QR routes are live when this app is deployed.
 
-## Routes
-- `/wrong` → **Better luck next time :(**
-- `/clue` → **The food will be great over here, but the chef has something to tell you 👀**
-- `/admin` → password-protected scan dashboard
+## Live QR Routes
+
+**[Test wrong QR](https://treasure-hunt-server.onrender.com/wrong)**     **[Test clue QR](https://treasure-hunt-server.onrender.com/clue)**
+
+### 🟢 Original Clues
+
+| Clue | Keyword | Route |
+|---|---|---|
+| **Clue 1** | **Canteen** | `/clue` |
+| **Clue 2** | **ID Card** | `/clue2` |
+| **Clue 3** | **Magazine** | `/clue3` |
+| **Clue 4** | **Notice Board** | `/clue4` |
+
+### 🔴 Fake QRs
+
+| Fake QR | Keyword / Message | Route |
+|---|---|---|
+| **Wrong QR 1** | **Wrong QR** | `/wrong` |
+| **Wrong QR 2** | **Keep Finding** | `/wrong2` |
+| **Wrong QR 3** | **Eureka? Nope** | `/wrong3` |
+
+## Safe sandbox
+
+Use the separate test routes below to test the clue/fake QR flow without mixing test activity into the real event counters.
+
+**Test Clue 1** → `/test/clue`  
+**Test Clue 2** → `/test/clue2`  
+**Test Clue 3** → `/test/clue3`  
+**Test Clue 4** → `/test/clue4`  
+**Test Wrong QR 1** → `/test/wrong`  
+**Test Wrong QR 2** → `/test/wrong2`  
+**Test Wrong QR 3** → `/test/wrong3`
+
+## Dashboard
+
+- `/admin` → password-protected live scan dashboard
 - `/health` → health check
+
+The dashboard separates original clues from fake QRs and shows IST time, device, browser, approximate unique visitors, and repeated-scan counts.
 
 ## Run locally
 ```bash
@@ -45,11 +79,7 @@ Set these environment variables on the host:
 For persistent scan counts, the SQLite database must live on persistent disk, or the database should be replaced with a managed database such as PostgreSQL. Some free hosting plans use ephemeral filesystems, which can erase `scans.db` on restart/redeploy.
 
 ## QR setup
-Once deployed, use:
-- `https://YOUR-DOMAIN/wrong`
-- `https://YOUR-DOMAIN/clue`
-
-Generate two QR codes using those URLs and put them on the corresponding hunt clues.
+Once deployed, use the live Render URLs for the corresponding routes and generate the QR codes from those URLs.
 
 ## Important counting note
 The dashboard tracks **total scans** and an **approximate unique visitor count**. It does not know the real-world identity of a person, and the same person can appear more than once if they switch browsers/devices or networks.
