@@ -12,7 +12,7 @@ app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
 DB_PATH = os.environ.get('DB_PATH', 'scans.db')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'NIK-TH-2026')
-ADMIN_SESSION_TIMEOUT = int(os.environ.get('ADMIN_SESSION_TIMEOUT', '1800'))  # 30 minutes
+ADMIN_SESSION_TIMEOUT = int(os.environ.get('ADMIN_SESSION_TIMEOUT', '1800'))
 ADMIN_AUTH_VERSION = secrets.token_hex(16)
 IST = ZoneInfo('Asia/Kolkata')
 
@@ -81,7 +81,6 @@ def close_db(exception=None):
 
 
 def visitor_hash():
-    # Privacy-friendly approximate unique visitor counting. We do not store raw IP addresses.
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
     ua = request.headers.get('User-Agent', '')
     salt = os.environ.get('VISITOR_SALT', 'change-this-salt')
@@ -90,7 +89,6 @@ def visitor_hash():
 
 def detect_device_and_browser():
     ua = request.headers.get('User-Agent', '').lower()
-
     if 'iphone' in ua:
         device = 'iPhone'
     elif 'ipad' in ua:
@@ -118,7 +116,6 @@ def detect_device_and_browser():
         browser = 'Safari'
     else:
         browser = 'Unknown'
-
     return device, browser
 
 
@@ -152,11 +149,9 @@ def admin_required(view):
         same_server_session = session.get('auth_version') == ADMIN_AUTH_VERSION
         last_activity = session.get('last_activity', 0)
         session_active = isinstance(last_activity, (int, float)) and now - last_activity < ADMIN_SESSION_TIMEOUT
-
         if not (authenticated and same_server_session and session_active):
             session.clear()
             return redirect(url_for('admin_login', next=request.path))
-
         session['last_activity'] = now
         return view(*args, **kwargs)
     return wrapped
@@ -211,9 +206,14 @@ def clue4():
 
 @app.route('/test/wrong')
 def test_wrong():
-    if request.args.get('section') == '1':
-        return serve_route('wrong', test=True)
-    return render_template('test_wrongs.html')
+    return render_template('test_wrong.html', sections=get_test_sections(FAKE_ROUTES))
+
+
+@app.route('/test/wrong/<route>')
+def test_wrong_section(route):
+    if route not in FAKE_ROUTES:
+        return redirect(url_for('test_wrong'))
+    return serve_route(route, test=True)
 
 
 @app.route('/test/wrong2')
@@ -228,24 +228,59 @@ def test_wrong3():
 
 @app.route('/test/clue')
 def test_clue():
-    if request.args.get('section') == '1':
-        return serve_route('clue', test=True)
-    return render_template('test_clues.html')
+    return render_template('test_clues.html', sections=get_test_sections(CLUE_ROUTES))
+
+
+@app.route('/test/clue/<route>')
+def test_clue_section(route):
+    if route not in CLUE_ROUTES:
+        return redirect(url_for('test_clue'))
+    return serve_route(route, test=True)
 
 
 @app.route('/test/clue2')
 def test_clue2():
-    return serve_route('clue2', test=True)
+    return redirect(url_for('test_clue_section', route='clue2'))
 
 
 @app.route('/test/clue3')
 def test_clue3():
-    return serve_route('clue3', test=True)
+    return redirect(url_for('test_clue_section', route='clue3'))
 
 
 @app.route('/test/clue4')
 def test_clue4():
-    return serve_route('clue4', test=True)
+    return redirect(url_for('test_clue_section', route='clue4'))
+
+
+def get_test_sections(routes):
+    db = get_db()
+    sections = []
+    keywords = {
+        'clue': 'Canteen',
+        'clue2': 'ID Card',
+        'clue3': 'Magazine',
+        'clue4': 'Notice Board',
+        'wrong': 'Wrong QR',
+        'wrong2': 'Keep Finding',
+        'wrong3': 'Eureka? Nope'
+    }
+    for index, route in enumerate(routes, start=1):
+        row = db.execute('''
+            SELECT COUNT(*) AS total, MAX(scanned_at) AS last_scan
+            FROM test_scans WHERE route=?
+        ''', (route,)).fetchone()
+        sections.append({
+            'number': index,
+            'route': route,
+            'label': ROUTE_LABELS[route],
+            'keyword': keywords[route],
+            'total': row['total'],
+            'last_scan': format_ist(row['last_scan']) if row['last_scan'] else 'No test runs yet',
+            'device': (db.execute('SELECT device FROM test_scans WHERE route=? ORDER BY id DESC LIMIT 1', (route,)).fetchone() or {'device': 'None'})['device'],
+            'browser': (db.execute('SELECT browser FROM test_scans WHERE route=? ORDER BY id DESC LIMIT 1', (route,)).fetchone() or {'browser': 'None'})['browser']
+        })
+    return sections
 
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -272,25 +307,17 @@ def get_dashboard_data():
     db = get_db()
     totals = {}
     uniques = {}
-
     for route in ROUTES:
         totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
         uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM scans WHERE route=?', (route,)).fetchone()[0]
-
     recent = db.execute('''
-        SELECT
-            route,
-            visitor_hash,
-            MAX(scanned_at) AS scanned_at,
-            COUNT(*) AS times_recorded,
-            MAX(device) AS device,
-            MAX(browser) AS browser
+        SELECT route, visitor_hash, MAX(scanned_at) AS scanned_at,
+               COUNT(*) AS times_recorded, MAX(device) AS device, MAX(browser) AS browser
         FROM scans
         GROUP BY route, visitor_hash
         ORDER BY MAX(id) DESC
         LIMIT 50
     ''').fetchall()
-
     return totals, uniques, recent
 
 
