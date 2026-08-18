@@ -1,52 +1,68 @@
 # Treasure Hunt Server 🗺️
 
-QR routes are live when this app is deployed.
+QR tracking server for the college treasure hunt.
 
-[**Test wrong QR**](https://treasure-hunt-server.onrender.com/test/wrong)     [**Test clue QR**](https://treasure-hunt-server.onrender.com/test/clue)     [**Admin dashboard**](https://treasure-hunt-server.onrender.com/admin)
+## Separate dashboards
 
-## 🧪 Test Runs
+[**Test wrong QR**](https://treasure-hunt-server.onrender.com/wrong)     [**Test clue QR**](https://treasure-hunt-server.onrender.com/clue)     [**Admin dashboard**](https://treasure-hunt-server.onrender.com/admin)
 
-The two buttons above are **safe sandbox test runs**. They use the dedicated `/test/...` routes and write to the separate `test_scans` table, so testing them does **not** affect the real event counters.
+### 🧪 Test Wrong QR
 
-- **Test wrong QR** → `/test/wrong`
-- **Test clue QR** → `/test/clue`
+Open **Test wrong QR** for the three fake-QR test sections:
 
-You can also test every route directly:
-
-**Original Clues**
-- Test Clue 1 → `/test/clue`
-- Test Clue 2 → `/test/clue2`
-- Test Clue 3 → `/test/clue3`
-- Test Clue 4 → `/test/clue4`
-
-**Fake QRs**
-- Test Wrong QR 1 → `/test/wrong`
-- Test Wrong QR 2 → `/test/wrong2`
-- Test Wrong QR 3 → `/test/wrong3`
-
-## 🟢 Original Clues
-
-| Clue | Keyword | Route |
+| Section | Keyword | Test route |
 |---|---|---|
-| **Clue 1** | **Canteen** | `/clue` |
-| **Clue 2** | **ID Card** | `/clue2` |
-| **Clue 3** | **Magazine** | `/clue3` |
-| **Clue 4** | **Notice Board** | `/clue4` |
+| **Section 1** | **Wrong QR** | `/wrong/section/wrong` |
+| **Section 2** | **Keep Finding** | `/wrong/section/wrong2` |
+| **Section 3** | **Eureka? Nope** | `/wrong/section/wrong3` |
 
-## 🔴 Fake QRs
+### 🧪 Test Clue QR
 
-| Fake QR | Keyword / Message | Route |
+Open **Test clue QR** for the four clue test sections:
+
+| Section | Keyword | Test route |
 |---|---|---|
-| **Wrong QR 1** | **Wrong QR** | `/wrong` |
-| **Wrong QR 2** | **Keep Finding** | `/wrong2` |
-| **Wrong QR 3** | **Eureka? Nope** | `/wrong3` |
+| **Section 1** | **Canteen** | `/clue/section/clue` |
+| **Section 2** | **ID Card** | `/clue/section/clue2` |
+| **Section 3** | **Magazine** | `/clue/section/clue3` |
+| **Section 4** | **Notice Board** | `/clue/section/clue4` |
 
-## Dashboard
+Every section keeps its own test-run history inside the sandbox.
 
-- `/admin` → password-protected live scan dashboard
-- `/health` → health check
+## 🏁 Live event QR routes
 
-The dashboard separates original clues from fake QRs and shows IST time, device, browser, approximate unique visitors, and repeated-scan counts. Test scans remain isolated from the real event counters.
+The real QR codes must use the `/event/...` routes. These write to `event_scans` and are the only scans shown in the admin dashboard.
+
+### 🟢 Original Clues
+
+| Clue | Keyword | Live route |
+|---|---|---|
+| **Clue 1** | **Canteen** | `/event/clue` |
+| **Clue 2** | **ID Card** | `/event/clue2` |
+| **Clue 3** | **Magazine** | `/event/clue3` |
+| **Clue 4** | **Notice Board** | `/event/clue4` |
+
+### 🔴 Fake QRs
+
+| Fake QR | Keyword / Message | Live route |
+|---|---|---|
+| **Wrong QR 1** | **Wrong QR** | `/event/wrong` |
+| **Wrong QR 2** | **Keep Finding** | `/event/wrong2` |
+| **Wrong QR 3** | **Eureka? Nope** | `/event/wrong3` |
+
+## 🔐 Admin dashboard
+
+`/admin` is the **Treasure Hunt Control Room / Live Scan Command Center**.
+
+It contains only live event data:
+- 🟢 Original Clues
+- 🔴 Fake QRs
+- IST timestamps
+- Device and browser
+- Approximate unique visitors
+- Repeated scan counts (`Times Rec.`)
+
+Test dashboards and test runs do not appear here.
 
 ## Run locally
 ```bash
@@ -68,10 +84,10 @@ pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://localhost:5000/admin` to test the dashboard.
+Open `http://localhost:5000/admin` to test the live-event dashboard.
 
 ## Deploy publicly
-Upload this folder to a Python-capable host such as Render, Railway, Fly.io, or another service you already use. Start command:
+Use a Python-capable host such as Render. Start command:
 
 ```bash
 gunicorn app:app
@@ -82,10 +98,4 @@ Set these environment variables on the host:
 - `ADMIN_PASSWORD`
 - `VISITOR_SALT`
 
-For persistent scan counts, the SQLite database must live on persistent disk, or the database should be replaced with a managed database such as PostgreSQL. Some free hosting plans use ephemeral filesystems, which can erase `scans.db` on restart/redeploy.
-
-## QR setup
-Once deployed, use the live Render URLs for the corresponding routes and generate the QR codes from those URLs.
-
-## Important counting note
-The dashboard tracks **total scans** and an **approximate unique visitor count**. It does not know the real-world identity of a person, and the same person can appear more than once if they switch browsers/devices or networks.
+For persistent live counts, the `event_scans` table should live on persistent disk or be replaced with a managed database such as PostgreSQL.
