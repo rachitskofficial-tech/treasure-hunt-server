@@ -27,9 +27,16 @@ def get_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 route TEXT NOT NULL,
                 scanned_at TEXT NOT NULL,
-                visitor_hash TEXT NOT NULL
+                visitor_hash TEXT NOT NULL,
+                device TEXT NOT NULL DEFAULT 'Unknown',
+                browser TEXT NOT NULL DEFAULT 'Unknown'
             )
         ''')
+        columns = {row['name'] for row in g.db.execute('PRAGMA table_info(scans)').fetchall()}
+        if 'device' not in columns:
+            g.db.execute("ALTER TABLE scans ADD COLUMN device TEXT NOT NULL DEFAULT 'Unknown'")
+        if 'browser' not in columns:
+            g.db.execute("ALTER TABLE scans ADD COLUMN browser TEXT NOT NULL DEFAULT 'Unknown'")
         g.db.commit()
     return g.db
 
@@ -49,11 +56,48 @@ def visitor_hash():
     return hashlib.sha256(f'{salt}|{ip}|{ua}'.encode()).hexdigest()[:24]
 
 
+def detect_device_and_browser():
+    ua = request.headers.get('User-Agent', '').lower()
+
+    if 'iphone' in ua:
+        device = 'iPhone'
+    elif 'ipad' in ua:
+        device = 'iPad'
+    elif 'android' in ua:
+        device = 'Android'
+    elif 'windows' in ua:
+        device = 'Windows'
+    elif 'macintosh' in ua or 'mac os' in ua:
+        device = 'Mac'
+    elif 'linux' in ua:
+        device = 'Linux'
+    else:
+        device = 'Unknown'
+
+    if 'edg/' in ua or 'edge/' in ua:
+        browser = 'Edge'
+    elif 'opr/' in ua or 'opera' in ua:
+        browser = 'Opera'
+    elif 'firefox/' in ua or 'fxios/' in ua:
+        browser = 'Firefox'
+    elif 'crios/' in ua or ('chrome/' in ua and 'edg/' not in ua):
+        browser = 'Chrome'
+    elif 'safari/' in ua and 'chrome/' not in ua and 'crios/' not in ua:
+        browser = 'Safari'
+    else:
+        browser = 'Unknown'
+
+    return device, browser
+
+
 def record_scan(route):
     db = get_db()
+    device, browser = detect_device_and_browser()
     db.execute(
-        'INSERT INTO scans (route, scanned_at, visitor_hash) VALUES (?, ?, ?)',
-        (route, datetime.now(timezone.utc).isoformat(), visitor_hash())
+        '''INSERT INTO scans
+           (route, scanned_at, visitor_hash, device, browser)
+           VALUES (?, ?, ?, ?, ?)''',
+        (route, datetime.now(timezone.utc).isoformat(), visitor_hash(), device, browser)
     )
     db.commit()
 
@@ -116,7 +160,8 @@ def get_dashboard_data():
     totals = {}
     uniques = {}
     recent = db.execute('''
-        SELECT route, scanned_at FROM scans ORDER BY id DESC LIMIT 50
+        SELECT route, scanned_at, device, browser
+        FROM scans ORDER BY id DESC LIMIT 50
     ''').fetchall()
     for route in ('wrong', 'clue'):
         totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
@@ -129,7 +174,12 @@ def get_dashboard_data():
 def admin_dashboard():
     totals, uniques, recent = get_dashboard_data()
     recent_display = [
-        {'route': row['route'], 'scanned_at': format_ist(row['scanned_at'])}
+        {
+            'route': row['route'],
+            'scanned_at': format_ist(row['scanned_at']),
+            'device': row['device'],
+            'browser': row['browser']
+        }
         for row in recent
     ]
     return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent_display)
@@ -143,7 +193,12 @@ def admin_stats():
         'totals': totals,
         'uniques': uniques,
         'recent': [
-            {'route': row['route'], 'scanned_at': format_ist(row['scanned_at'])}
+            {
+                'route': row['route'],
+                'scanned_at': format_ist(row['scanned_at']),
+                'device': row['device'],
+                'browser': row['browser']
+            }
             for row in recent
         ]
     })
