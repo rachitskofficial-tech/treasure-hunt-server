@@ -8,7 +8,7 @@ from flask import Flask, render_template, request, redirect, url_for, session, g
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
 DB_PATH = os.environ.get('DB_PATH', 'scans.db')
-ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'change-me-now')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'NIK-TH-2026')
 
 MESSAGES = {
     'wrong': 'Better luck next time :(',
