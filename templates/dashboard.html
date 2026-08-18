@@ -1,21 +1,24 @@
 {% extends 'base.html' %}{% block content %}
 <div class="row" style="justify-content:space-between"><div><div class="small">TREASURE HUNT CONTROL ROOM</div><h1 style="font-size:42px">Scan Dashboard</h1></div><a class="btn" href="{{ url_for('admin_logout') }}">Log out</a></div>
 <div class="grid">
-  <div class="stat"><div class="label">Wrong QR · total scans</div><b id="wrong-total">{{ totals.wrong }}</b><div class="muted">Approx. unique visitors: <span id="wrong-unique">{{ uniques.wrong }}</span></div></div>
-  <div class="stat"><div class="label">Clue QR · total scans</div><b id="clue-total">{{ totals.clue }}</b><div class="muted">Approx. unique visitors: <span id="clue-unique">{{ uniques.clue }}</span></div></div>
+{% for route in totals %}
+  <div class="stat"><div class="label">{{ route_labels.get(route, route) }} · total scans</div><b id="{{ route }}-total">{{ totals[route] }}</b><div class="muted">Approx. unique visitors: <span id="{{ route }}-unique">{{ uniques[route] }}</span></div></div>
+{% endfor %}
 </div>
 <p class="small">Live updates are enabled. The dashboard checks for new scans every 2 seconds. “Unique visitors” is approximate and privacy-friendly. It is based on a hashed IP + user-agent, not stored raw.</p>
-<table><thead><tr><th>Route</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead><tbody id="recent-scans">{% for row in recent %}<tr><td>{{ row['route'] }}</td><td>{{ row['scanned_at'] }}</td><td>{{ row['device'] }}</td><td>{{ row['browser'] }}</td></tr>{% else %}<tr><td colspan="4">No scans yet.</td></tr>{% endfor %}</tbody></table>
+<table><thead><tr><th>Route</th><th>Time (IST)</th><th>Device</th><th>Browser</th></tr></thead><tbody id="recent-scans">{% for row in recent %}<tr><td>{{ route_labels.get(row['route'], row['route']) }}</td><td>{{ row['scanned_at'] }}</td><td>{{ row['device'] }}</td><td>{{ row['browser'] }}</td></tr>{% else %}<tr><td colspan="4">No scans yet.</td></tr>{% endfor %}</tbody></table>
 <script>
 async function updateDashboard() {
   try {
     const response = await fetch('{{ url_for("admin_stats") }}', {cache: 'no-store'});
     if (!response.ok) return;
     const data = await response.json();
-    document.getElementById('wrong-total').textContent = data.totals.wrong;
-    document.getElementById('wrong-unique').textContent = data.uniques.wrong;
-    document.getElementById('clue-total').textContent = data.totals.clue;
-    document.getElementById('clue-unique').textContent = data.uniques.clue;
+    Object.keys(data.totals).forEach(route => {
+      const total = document.getElementById(`${route}-total`);
+      const unique = document.getElementById(`${route}-unique`);
+      if (total) total.textContent = data.totals[route];
+      if (unique) unique.textContent = data.uniques[route];
+    });
 
     const tbody = document.getElementById('recent-scans');
     if (!data.recent.length) {
