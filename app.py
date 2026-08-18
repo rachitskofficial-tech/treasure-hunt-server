@@ -221,13 +221,27 @@ def get_dashboard_data():
     db = get_db()
     totals = {}
     uniques = {}
-    recent = db.execute('''
-        SELECT route, scanned_at, device, browser
-        FROM scans ORDER BY id DESC LIMIT 50
-    ''').fetchall()
+
     for route in ROUTES:
         totals[route] = db.execute('SELECT COUNT(*) FROM scans WHERE route=?', (route,)).fetchone()[0]
         uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM scans WHERE route=?', (route,)).fetchone()[0]
+
+    # Keep the raw scan rows in SQLite, but compact repeated scans in the dashboard.
+    # Each row represents one route + approximate visitor combination, with the latest scan time and repeat count.
+    recent = db.execute('''
+        SELECT
+            route,
+            visitor_hash,
+            MAX(scanned_at) AS scanned_at,
+            COUNT(*) AS times_recorded,
+            MAX(device) AS device,
+            MAX(browser) AS browser
+        FROM scans
+        GROUP BY route, visitor_hash
+        ORDER BY MAX(id) DESC
+        LIMIT 50
+    ''').fetchall()
+
     return totals, uniques, recent
 
 
@@ -240,7 +254,8 @@ def admin_dashboard():
             'route': row['route'],
             'scanned_at': format_ist(row['scanned_at']),
             'device': row['device'],
-            'browser': row['browser']
+            'browser': row['browser'],
+            'times_recorded': row['times_recorded']
         }
         for row in recent
     ]
@@ -265,7 +280,8 @@ def admin_stats():
                 'route': row['route'],
                 'scanned_at': format_ist(row['scanned_at']),
                 'device': row['device'],
-                'browser': row['browser']
+                'browser': row['browser'],
+                'times_recorded': row['times_recorded']
             }
             for row in recent
         ]
