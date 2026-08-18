@@ -139,7 +139,20 @@
     font-size: 13px;
     font-weight: 800;
   }
-  .route-total { margin-top: 7px; font-size: 30px; font-weight: 900; color:#fff; }
+  .route-keyword {
+    display: inline-flex;
+    margin-top: 7px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    background: rgba(255,255,255,.07);
+    border: 1px solid rgba(255,255,255,.08);
+    color: #b8c4dd;
+    font-size: 10px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+  }
+  .route-total { margin-top: 9px; font-size: 30px; font-weight: 900; color:#fff; }
   .route-unique { margin-top: 4px; color:#94a0bb; font-size:11px; }
   .recent-wrap {
     border-radius: 18px;
@@ -206,9 +219,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="route-grid">
+        {% set clue_keywords = {'clue':'Canteen', 'clue2':'ID Card', 'clue3':'Magazine', 'clue4':'Notice Board'} %}
         {% for route in ['clue', 'clue2', 'clue3', 'clue4'] %}
         <div class="route-card">
           <div class="route-name">{{ route_labels.get(route, route) }}</div>
+          <div class="route-keyword">{{ clue_keywords.get(route, 'TBD') }}</div>
           <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
           <div class="route-unique">Unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
         </div>
@@ -235,9 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
 
       <div class="route-grid">
+        {% set fake_keywords = {'wrong':'Wrong QR', 'wrong2':'Keep Finding', 'wrong3':'Eureka? Nope'} %}
         {% for route in ['wrong', 'wrong2', 'wrong3'] %}
         <div class="route-card">
           <div class="route-name">{{ route_labels.get(route, route) }}</div>
+          <div class="route-keyword">{{ fake_keywords.get(route, 'Decoy') }}</div>
           <div class="route-total" id="{{ route }}-total">{{ totals.get(route, 0) }}</div>
           <div class="route-unique">Unique visitors: <span id="{{ route }}-unique">{{ uniques.get(route, 0) }}</span></div>
         </div>
