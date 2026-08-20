@@ -1,52 +1,19 @@
 {% extends 'base.html' %}{% block content %}
 <style>
-  .hub{width:100%;max-width:1120px;margin:0 auto;text-align:center;padding:8px 0 4px}
-  .title{margin:0 auto;font-size:clamp(34px,6vw,64px);line-height:1.02;letter-spacing:-.045em;max-width:900px}
-  .subtitle{margin:14px auto 0;max-width:760px;color:#aab3c9;font-size:15px;line-height:1.6}
-  .hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:30px;text-align:left}
-  .hub-card{display:block;text-decoration:none;color:#f8fbff;border-radius:24px;padding:24px;min-height:250px;position:relative;overflow:hidden;transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease}
-  .hub-card:hover{transform:translateY(-4px)}
-  .hub-card.test-wrong{background:linear-gradient(180deg,#32151c,#1c1015);border:1px solid #6b2e3a}
-  .hub-card.test-clue{background:linear-gradient(180deg,#10291f,#0c1915);border:1px solid #24513e}
-  .hub-card.admin{background:linear-gradient(180deg,#18233a,#0d1424);border:1px solid #344768}
-  .hub-number{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;opacity:.65}
-  .hub-icon{font-size:34px;margin-top:14px}
-  .hub-title{font-size:25px;font-weight:900;margin-top:10px}
-  .hub-desc{font-size:13px;line-height:1.6;color:#aeb7cb;margin-top:8px;max-width:34ch}
-  .hub-route{position:absolute;bottom:22px;left:24px;right:24px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#8f9bb5;font-weight:800}
-  .hub-footer{margin-top:24px;color:#697694;font-size:11px}
-  @media(max-width:900px){.hub-grid{grid-template-columns:1fr}.hub-card{min-height:220px}}
+  .hub{width:100%;max-width:1120px;margin:0 auto;text-align:center;padding:8px 0 4px}.title{margin:0 auto;font-size:clamp(34px,6vw,64px);line-height:1.02;letter-spacing:-.045em;max-width:900px}.subtitle{margin:14px auto 0;max-width:760px;color:#aab3c9;font-size:15px;line-height:1.6}.register-banner{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:26px auto 0;padding:18px 20px;border-radius:18px;background:linear-gradient(180deg,#10251c,#0c1915);border:1px solid #24513e;text-align:left;max-width:900px}.register-label{font-size:11px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:#7df2bd}.register-text{margin-top:5px;color:#dce8e1;font-size:14px}.register-btn{display:inline-block;white-space:nowrap;padding:12px 16px;border-radius:12px;background:#7df2bd;color:#082015;text-decoration:none;font-weight:900}.hub-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px;margin-top:24px;text-align:left}.hub-card{display:block;text-decoration:none;color:#f8fbff;border-radius:24px;padding:24px;min-height:250px;position:relative;overflow:hidden;transition:transform .18s ease}.hub-card:hover{transform:translateY(-4px)}.hub-card.test-wrong{background:linear-gradient(180deg,#32151c,#1c1015);border:1px solid #6b2e3a}.hub-card.test-clue{background:linear-gradient(180deg,#10291f,#0c1915);border:1px solid #24513e}.hub-card.admin{background:linear-gradient(180deg,#18233a,#0d1424);border:1px solid #344768}.hub-number{font-size:11px;font-weight:900;letter-spacing:.14em;text-transform:uppercase;opacity:.65}.hub-icon{font-size:34px;margin-top:14px}.hub-title{font-size:25px;font-weight:900;margin-top:10px}.hub-desc{font-size:13px;line-height:1.6;color:#aeb7cb;margin-top:8px;max-width:34ch}.hub-route{position:absolute;bottom:22px;left:24px;right:24px;padding-top:12px;border-top:1px solid rgba(255,255,255,.08);font-size:11px;color:#8f9bb5;font-weight:800}.hub-footer{margin-top:24px;color:#697694;font-size:11px}@media(max-width:900px){.hub-grid{grid-template-columns:1fr}.hub-card{min-height:220px}.register-banner{flex-direction:column;align-items:flex-start}}
 </style>
 <div class="hub">
   <h1 class="title">Command Hub 🗺️</h1>
-  <p class="subtitle">One server. Three clean destinations. Testing stays in the sandbox, while the admin console watches only the live event.</p>
+  <p class="subtitle">Register your team first. Only the registered phone for each team can scan the live event QR codes.</p>
+
+  <div class="register-banner"><div><div class="register-label">First step · 6 team slots</div><div class="register-text">Create your temporary Team ID and bind this phone to your team.</div></div><a class="register-btn" href="/register">Register Team</a></div>
 
   <div class="hub-grid">
-    <a class="hub-card test-wrong" href="/wrong">
-      <div class="hub-number">01 · TESTING</div>
-      <div class="hub-icon">🧪</div>
-      <div class="hub-title">Test Wrong QR</div>
-      <div class="hub-desc">Run and review the three fake-QR test sections without touching live event data.</div>
-      <div class="hub-route">/wrong</div>
-    </a>
-
-    <a class="hub-card test-clue" href="/clue">
-      <div class="hub-number">02 · TESTING</div>
-      <div class="hub-icon">🔎</div>
-      <div class="hub-title">Test Clue QR</div>
-      <div class="hub-desc">Test Canteen, ID Card, Magazine, and Notice Board in their own sandbox sections.</div>
-      <div class="hub-route">/clue</div>
-    </a>
-
-    <a class="hub-card admin" href="/admin">
-      <div class="hub-number">03 · LIVE CONTROL</div>
-      <div class="hub-icon">🎛️</div>
-      <div class="hub-title">Admin Dashboard</div>
-      <div class="hub-desc">Open the Treasure Hunt Control Room and monitor only real event scans.</div>
-      <div class="hub-route">/admin · password protected</div>
-    </a>
+    <a class="hub-card test-wrong" href="/wrong"><div class="hub-number">01 · TESTING</div><div class="hub-icon">🧪</div><div class="hub-title">Test Wrong QR</div><div class="hub-desc">Run the three fake-QR test sections without touching live event data.</div><div class="hub-route">/wrong</div></a>
+    <a class="hub-card test-clue" href="/clue"><div class="hub-number">02 · TESTING</div><div class="hub-icon">🔎</div><div class="hub-title">Test Clue QR</div><div class="hub-desc">Test Canteen, ID Card, Magazine, and Notice Board in their sandbox sections.</div><div class="hub-route">/clue</div></a>
+    <a class="hub-card admin" href="/admin"><div class="hub-number">03 · LIVE CONTROL</div><div class="hub-icon">🎛️</div><div class="hub-title">Admin Dashboard</div><div class="hub-desc">Open the Treasure Hunt Control Room and monitor live event scans.</div><div class="hub-route">/admin · password protected</div></a>
   </div>
 
-  <div class="hub-footer">Single Render server · Test data and live event data remain separated.</div>
+  <div class="hub-footer">Single Render server · Six registered teams · One authorised phone per team.</div>
 </div>
 {% endblock %}
