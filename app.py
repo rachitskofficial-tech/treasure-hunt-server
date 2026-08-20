@@ -254,41 +254,37 @@ def register_team():
             else:
                 raw_device_token = secrets.token_hex(32)
                 device_token_hash = hash_value(raw_device_token)
-                duplicate_device = db.execute('SELECT id FROM teams WHERE device_token_hash=? AND active=1', (device_token_hash,)).fetchone()
-                if duplicate_device:
-                    error = 'This phone is already registered to a team.'
-                else:
-                    temp_id = new_temp_id(team_number)
-                    temp_hash = hash_value(temp_id)
-                    try:
-                        db.execute('''
-                            INSERT INTO teams
-                            (team_number, name, uucms_number, contact_number, temp_id_hash, device_token_hash, registered_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        ''', (
-                            team_number, name, uucms, contact, temp_hash,
-                            device_token_hash, datetime.now(timezone.utc).isoformat()
-                        ))
-                        db.commit()
-                        response = make_response(render_template(
-                            'register.html',
-                            success=True,
-                            temp_id=temp_id,
-                            team_number=team_number,
-                            available_teams=[]
-                        ))
-                        response.set_cookie(
-                            TEAM_COOKIE,
-                            raw_device_token,
-                            max_age=48 * 60 * 60,
-                            httponly=True,
-                            samesite='Lax',
-                            secure=request.is_secure
-                        )
-                        return response
-                    except sqlite3.IntegrityError:
-                        db.rollback()
-                        error = 'That team could not be registered. Please try another team.'
+                temp_id = new_temp_id(team_number)
+                temp_hash = hash_value(temp_id)
+                try:
+                    db.execute('''
+                        INSERT INTO teams
+                        (team_number, name, uucms_number, contact_number, temp_id_hash, device_token_hash, registered_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?)
+                    ''', (
+                        team_number, name, uucms, contact, temp_hash,
+                        device_token_hash, datetime.now(timezone.utc).isoformat()
+                    ))
+                    db.commit()
+                    response = make_response(render_template(
+                        'register.html',
+                        success=True,
+                        temp_id=temp_id,
+                        team_number=team_number,
+                        available_teams=[]
+                    ))
+                    response.set_cookie(
+                        TEAM_COOKIE,
+                        raw_device_token,
+                        max_age=48 * 60 * 60,
+                        httponly=True,
+                        samesite='Lax',
+                        secure=request.is_secure
+                    )
+                    return response
+                except sqlite3.IntegrityError:
+                    db.rollback()
+                    error = 'That team could not be registered. Please try another team.'
 
     available = [n for n in TEAM_SLOTS if not db.execute('SELECT 1 FROM teams WHERE team_number=? AND active=1', (n,)).fetchone()]
     return render_template('register.html', success=success, temp_id=temp_id, team_number=registered_team_number, available_teams=available, error=error)
@@ -434,6 +430,51 @@ def admin_login():
 def admin_logout():
     session.clear()
     return redirect('/admin/login')
+
+
+@app.route('/admin/teams/edit/<int:team_number>', methods=['GET', 'POST'])
+@admin_required
+def admin_team_edit(team_number):
+    db = get_db()
+    team = db.execute('SELECT * FROM teams WHERE team_number=? AND active=1', (team_number,)).fetchone()
+    if not team:
+        return redirect('/admin')
+    error = None
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        uucms = request.form.get('uucms', '').strip()
+        contact = request.form.get('contact', '').strip()
+        if not name or not uucms or not contact:
+            error = 'Name, UUCMS Number, and Contact Number are required.'
+        else:
+            db.execute('UPDATE teams SET name=?, uucms_number=?, contact_number=? WHERE team_number=?', (name, uucms, contact, team_number))
+            db.commit()
+            return redirect('/admin')
+        team = db.execute('SELECT * FROM teams WHERE team_number=? AND active=1', (team_number,)).fetchone()
+    return render_template('team_edit.html', team=team, error=error)
+
+
+@app.route('/admin/teams/clear/<int:team_number>', methods=['POST'])
+@admin_required
+def admin_team_clear(team_number):
+    db = get_db()
+    team = db.execute('SELECT id FROM teams WHERE team_number=? AND active=1', (team_number,)).fetchone()
+    if team:
+        db.execute('DELETE FROM live_scans WHERE team_id=?', (team['id'],))
+        db.commit()
+    return redirect('/admin')
+
+
+@app.route('/admin/teams/remove/<int:team_number>', methods=['POST'])
+@admin_required
+def admin_team_remove(team_number):
+    db = get_db()
+    team = db.execute('SELECT id FROM teams WHERE team_number=? AND active=1', (team_number,)).fetchone()
+    if team:
+        db.execute('DELETE FROM live_scans WHERE team_id=?', (team['id'],))
+        db.execute('DELETE FROM teams WHERE id=?', (team['id'],))
+        db.commit()
+    return redirect('/admin')
 
 
 def get_live_dashboard_data():
