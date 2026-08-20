@@ -1,0 +1,20 @@
+{% extends 'base.html' %}{% block content %}
+<style>
+  .edit-shell{max-width:700px;margin:0 auto}.edit-badge{display:inline-block;padding:7px 11px;border-radius:999px;background:#18233a;border:1px solid #344768;color:#b8c7e5;font-size:11px;font-weight:800;letter-spacing:.1em;text-transform:uppercase}.edit-title{margin:16px 0 6px;font-size:clamp(32px,6vw,48px)}.edit-subtitle{margin:0 0 24px;color:#98a5c4;line-height:1.6}.form-grid{display:grid;gap:14px}.field label{display:block;margin-bottom:7px;color:#c7d0e3;font-size:12px;font-weight:800}.input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid #39425d;background:#0d1324;color:#fff;font-size:16px}.locked{opacity:.65}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:20px}.btn{display:inline-block}.cancel{background:#161f35;color:#fff;border:1px solid #2b3856}.error{color:#ff9c9c;margin-top:14px}
+</style>
+<div class="edit-shell">
+  <span class="edit-badge">Admin · Team Management</span>
+  <h1 class="edit-title">Edit Team {{ team.team_number }}</h1>
+  <p class="edit-subtitle">Update the registered team details. The authorised phone token and temporary ID remain unchanged.</p>
+  <form method="post">
+    <div class="form-grid">
+      <div class="field"><label>Name</label><input class="input" name="name" value="{{ team.name }}" required></div>
+      <div class="field"><label>UUCMS Number</label><input class="input" name="uucms" value="{{ team.uucms_number }}" required></div>
+      <div class="field"><label>Contact Number</label><input class="input" name="contact" value="{{ team.contact_number }}" required></div>
+      <div class="field"><label>Team Number</label><input class="input locked" value="{{ team.team_number }}" disabled></div>
+    </div>
+    {% if error %}<p class="error">{{ error }}</p>{% endif %}
+    <div class="actions"><button class="btn" type="submit">Save Changes</button><a class="btn cancel" href="/admin">Cancel</a></div>
+  </form>
+</div>
+{% endblock %}
