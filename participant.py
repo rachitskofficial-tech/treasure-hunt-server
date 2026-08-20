@@ -1,4 +1,4 @@
-import sqlite3
+import time
 from datetime import datetime, timezone
 from flask import jsonify, render_template, request, session
 
@@ -16,8 +16,34 @@ from app import (
 )
 
 TOTAL_CHECKPOINTS = 7
-CHECKPOINT_MAP = {'clue': 1, 'clue2': 2, 'clue3': 3, 'clue4': 4}
-ALL_EVENT_ROUTES = set(CLUE_ROUTES) | set(FAKE_ROUTES)
+VALID_CHECKPOINTS = {
+    'clue': 1,
+    'clue2': 2,
+    'clue3': 3,
+    'clue4': 4,
+    'checkpoint5': 5,
+    'checkpoint6': 6,
+    'checkpoint7': 7,
+}
+VALID_MESSAGES = {
+    'clue': MESSAGES['clue'],
+    'clue2': MESSAGES['clue2'],
+    'clue3': MESSAGES['clue3'],
+    'clue4': MESSAGES['clue4'],
+    'checkpoint5': 'Checkpoint 5 cleared. Keep moving.',
+    'checkpoint6': 'Checkpoint 6 cleared. Keep moving.',
+    'checkpoint7': 'Checkpoint 7 cleared. Keep moving.',
+}
+VALID_KEYWORDS = {
+    'clue': KEYWORDS['clue'],
+    'clue2': KEYWORDS['clue2'],
+    'clue3': KEYWORDS['clue3'],
+    'clue4': KEYWORDS['clue4'],
+    'checkpoint5': 'Checkpoint 5',
+    'checkpoint6': 'Checkpoint 6',
+    'checkpoint7': 'Checkpoint 7',
+}
+ALL_EVENT_ROUTES = set(VALID_CHECKPOINTS) | set(FAKE_ROUTES)
 
 
 def ensure_participant_tables():
@@ -47,7 +73,6 @@ def ensure_participant_tables():
 
 def admin_session_active():
     import app as app_module
-    import time
     now = time.time()
     return (
         session.get('admin') is True
@@ -59,9 +84,15 @@ def admin_session_active():
 
 def checkpoint_snapshot(team):
     db = ensure_participant_tables()
-    rows = db.execute('''SELECT checkpoint_number FROM checkpoint_clears WHERE team_id=? ORDER BY checkpoint_number''', (team['id'],)).fetchall()
+    rows = db.execute(
+        'SELECT checkpoint_number FROM checkpoint_clears WHERE team_id=? ORDER BY checkpoint_number',
+        (team['id'],)
+    ).fetchall()
     cleared = {int(row['checkpoint_number']) for row in rows}
-    finish = db.execute('''SELECT completed_at, elapsed_seconds FROM team_finishes WHERE team_id=?''', (team['id'],)).fetchone()
+    finish = db.execute(
+        'SELECT completed_at, elapsed_seconds FROM team_finishes WHERE team_id=?',
+        (team['id'],)
+    ).fetchone()
     return {
         'total': TOTAL_CHECKPOINTS,
         'cleared': sorted(cleared),
@@ -93,7 +124,10 @@ def scanner_security_headers(response):
 
 @app.after_request
 def apply_participant_security_headers(response):
-    response.headers.setdefault('Permissions-Policy', 'camera=(self), microphone=(), geolocation=(), display-capture=(), speaker-selection=()')
+    response.headers.setdefault(
+        'Permissions-Policy',
+        'camera=(self), microphone=(), geolocation=(), display-capture=(), speaker-selection=()'
+    )
     return response
 
 
@@ -145,8 +179,11 @@ def participant_scan_result():
             'progress': checkpoint_snapshot(team),
         })
 
-    checkpoint_number = CHECKPOINT_MAP[route]
-    existing = db.execute('''SELECT id FROM checkpoint_clears WHERE team_id=? AND checkpoint_number=?''', (team['id'], checkpoint_number)).fetchone()
+    checkpoint_number = VALID_CHECKPOINTS[route]
+    existing = db.execute(
+        'SELECT id FROM checkpoint_clears WHERE team_id=? AND checkpoint_number=?',
+        (team['id'], checkpoint_number)
+    ).fetchone()
     newly_cleared = False
     cleared_at = None
     if not existing:
@@ -154,17 +191,29 @@ def participant_scan_result():
         db.execute('''
             INSERT INTO checkpoint_clears (team_id, team_number, checkpoint_number, route, cleared_at)
             VALUES (?, ?, ?, ?, ?)
-        ''', (team['id'], team['team_number'], checkpoint_number, route, cleared_at.isoformat()))
+        ''', (
+            team['id'],
+            team['team_number'],
+            checkpoint_number,
+            route,
+            cleared_at.isoformat(),
+        ))
         db.commit()
         newly_cleared = True
 
     progress = checkpoint_snapshot(team)
     if progress['cleared_count'] >= TOTAL_CHECKPOINTS and not progress['completed']:
-        first_valid = db.execute('''SELECT MIN(cleared_at) AS first_cleared FROM checkpoint_clears WHERE team_id=?''', (team['id'],)).fetchone()
+        first_valid = db.execute(
+            'SELECT MIN(cleared_at) AS first_cleared FROM checkpoint_clears WHERE team_id=?',
+            (team['id'],)
+        ).fetchone()
         first_dt = datetime.fromisoformat(first_valid['first_cleared']) if first_valid and first_valid['first_cleared'] else cleared_at
         finish_dt = datetime.now(timezone.utc)
         elapsed = max(0.0, (finish_dt - first_dt).total_seconds())
-        db.execute('''INSERT INTO team_finishes (team_id, team_number, completed_at, elapsed_seconds) VALUES (?, ?, ?, ?)''', (team['id'], team['team_number'], finish_dt.isoformat(), elapsed))
+        db.execute(
+            'INSERT INTO team_finishes (team_id, team_number, completed_at, elapsed_seconds) VALUES (?, ?, ?, ?)',
+            (team['id'], team['team_number'], finish_dt.isoformat(), elapsed)
+        )
         db.commit()
         progress = checkpoint_snapshot(team)
 
@@ -173,11 +222,34 @@ def participant_scan_result():
         'kind': 'valid',
         'route': route,
         'checkpoint': checkpoint_number,
-        'message': MESSAGES[route],
-        'keyword': KEYWORDS[route],
+        'message': VALID_MESSAGES[route],
+        'keyword': VALID_KEYWORDS[route],
         'newly_cleared': newly_cleared,
         'progress': progress,
     })
+
+
+# Dedicated live QR endpoints for Checkpoints 5-7.
+def generic_checkpoint(route):
+    team = get_team_from_cookie()
+    if not team:
+        return render_template('message.html', title='Event Access Restricted', message=DENIED_MESSAGE), 403
+    return render_template('message.html', title=VALID_KEYWORDS[route], message=VALID_MESSAGES[route])
+
+
+@app.route('/event/checkpoint5')
+def event_checkpoint5():
+    return generic_checkpoint('checkpoint5')
+
+
+@app.route('/event/checkpoint6')
+def event_checkpoint6():
+    return generic_checkpoint('checkpoint6')
+
+
+@app.route('/event/checkpoint7')
+def event_checkpoint7():
+    return generic_checkpoint('checkpoint7')
 
 
 @app.route('/admin/participant-stats')
