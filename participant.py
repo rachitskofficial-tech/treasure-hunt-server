@@ -1,6 +1,7 @@
 import time
 from datetime import datetime, timezone
 from flask import jsonify, render_template, request, session
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from app import (
     app,
@@ -13,6 +14,15 @@ from app import (
     get_db,
     get_team_from_cookie,
     record_live_scan,
+)
+
+# Render terminates TLS at its proxy. Trust the forwarded HTTPS signal so Flask can
+# correctly issue Secure cookies and enforce the secure-context flow in production.
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
+app.config.update(
+    SESSION_COOKIE_SECURE=True,
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE='Lax',
 )
 
 TOTAL_CHECKPOINTS = 7
@@ -229,7 +239,6 @@ def participant_scan_result():
     })
 
 
-# Dedicated live QR endpoints for Checkpoints 5-7.
 def generic_checkpoint(route):
     team = get_team_from_cookie()
     if not team:
