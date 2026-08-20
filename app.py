@@ -5,7 +5,7 @@ import time
 import secrets
 from datetime import datetime, timezone, timedelta
 from functools import wraps
-from flask import Flask, render_template, request, redirect, url_for, session, g, jsonify
+from flask import Flask, render_template, request, redirect, session, g, jsonify, make_response
 
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', 'change-this-secret-key')
@@ -14,6 +14,10 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'NIK-TH-2026')
 ADMIN_SESSION_TIMEOUT = int(os.environ.get('ADMIN_SESSION_TIMEOUT', '1800'))
 ADMIN_AUTH_VERSION = secrets.token_hex(16)
 IST = timezone(timedelta(hours=5, minutes=30), name='IST')
+TEAM_COOKIE = 'nikshepa_team_token'
+TEAM_SLOTS = tuple(range(1, 7))
+TEMP_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+DENIED_MESSAGE = "Sorry, we couldn't process with the event. Contact team NIKSHEPA"
 
 MESSAGES = {
     'wrong': 'Better luck next time :(',
@@ -63,13 +67,25 @@ def get_db():
             )
         ''')
         g.db.execute('''
-            CREATE TABLE IF NOT EXISTS event_scans (
+            CREATE TABLE IF NOT EXISTS teams (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_number INTEGER NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                uucms_number TEXT NOT NULL,
+                contact_number TEXT NOT NULL,
+                temp_id_hash TEXT NOT NULL UNIQUE,
+                device_token_hash TEXT NOT NULL UNIQUE,
+                registered_at TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1
+            )
+        ''')
+        g.db.execute('''
+            CREATE TABLE IF NOT EXISTS live_scans (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                team_id INTEGER NOT NULL,
+                team_number INTEGER NOT NULL,
                 route TEXT NOT NULL,
-                scanned_at TEXT NOT NULL,
-                visitor_hash TEXT NOT NULL,
-                device TEXT NOT NULL DEFAULT 'Unknown',
-                browser TEXT NOT NULL DEFAULT 'Unknown'
+                scanned_at TEXT NOT NULL
             )
         ''')
         g.db.commit()
@@ -83,11 +99,15 @@ def close_db(exception=None):
         db.close()
 
 
+def hash_value(value):
+    salt = os.environ.get('VISITOR_SALT', 'change-this-salt')
+    return hashlib.sha256(f'{salt}|{value}'.encode()).hexdigest()
+
+
 def visitor_hash():
     ip = request.headers.get('X-Forwarded-For', request.remote_addr or '').split(',')[0].strip()
     ua = request.headers.get('User-Agent', '')
-    salt = os.environ.get('VISITOR_SALT', 'change-this-salt')
-    return hashlib.sha256(f'{salt}|{ip}|{ua}'.encode()).hexdigest()[:24]
+    return hash_value(f'{ip}|{ua}')[:24]
 
 
 def detect_device_and_browser():
@@ -106,7 +126,6 @@ def detect_device_and_browser():
         device = 'Linux'
     else:
         device = 'Unknown'
-
     if 'edg/' in ua or 'edge/' in ua:
         browser = 'Edge'
     elif 'opr/' in ua or 'opera' in ua:
@@ -122,28 +141,33 @@ def detect_device_and_browser():
     return device, browser
 
 
-def record_scan(route, table):
-    if table not in {'test_scans', 'event_scans'}:
-        raise ValueError('Invalid scan table')
+def new_temp_id(team_number):
+    suffix = ''.join(secrets.choice(TEMP_ALPHABET) for _ in range(6))
+    return f'NIK-{team_number:02d}-{suffix}'
+
+
+def get_team_from_cookie():
+    raw = request.cookies.get(TEAM_COOKIE)
+    if not raw:
+        return None
+    token_hash = hash_value(raw)
+    return get_db().execute('''
+        SELECT * FROM teams
+        WHERE device_token_hash=? AND active=1
+    ''', (token_hash,)).fetchone()
+
+
+def team_gate_response():
+    return render_template('message.html', title='Event Access Restricted', message=DENIED_MESSAGE)
+
+
+def record_live_scan(route, team):
     db = get_db()
-    device, browser = detect_device_and_browser()
-    db.execute(
-        f'''INSERT INTO {table}
-           (route, scanned_at, visitor_hash, device, browser)
-           VALUES (?, ?, ?, ?, ?)''',
-        (route, datetime.now(timezone.utc).isoformat(), visitor_hash(), device, browser)
-    )
+    db.execute('''
+        INSERT INTO live_scans (team_id, team_number, route, scanned_at)
+        VALUES (?, ?, ?, ?)
+    ''', (team['id'], team['team_number'], route, datetime.now(timezone.utc).isoformat()))
     db.commit()
-
-
-def format_ist(iso_timestamp):
-    try:
-        dt = datetime.fromisoformat(iso_timestamp)
-        if dt.tzinfo is None:
-            dt = dt.replace(tzinfo=timezone.utc)
-        return dt.astimezone(IST).strftime('%d %b %Y, %I:%M:%S %p')
-    except (TypeError, ValueError):
-        return iso_timestamp or 'No runs yet'
 
 
 def admin_required(view):
@@ -162,36 +186,123 @@ def admin_required(view):
     return wrapped
 
 
-def render_scan(route, table, test=False):
-    record_scan(route, table)
-    title = f'Test {ROUTE_LABELS[route]}' if test else ROUTE_LABELS[route]
-    return render_template('message.html', message=MESSAGES[route], title=title)
+def format_ist(iso_timestamp):
+    try:
+        dt = datetime.fromisoformat(iso_timestamp)
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.astimezone(IST).strftime('%d %b %Y, %I:%M:%S %p')
+    except (TypeError, ValueError):
+        return iso_timestamp or ''
 
 
 def get_test_sections(routes):
     db = get_db()
     sections = []
     for index, route in enumerate(routes, start=1):
-        latest = db.execute('''
-            SELECT scanned_at, device, browser
-            FROM test_scans
-            WHERE route=?
-            ORDER BY id DESC LIMIT 1
-        ''', (route,)).fetchone()
-        total = db.execute('SELECT COUNT(*) FROM test_scans WHERE route=?', (route,)).fetchone()[0]
+        row = db.execute('SELECT COUNT(*) AS total FROM test_scans WHERE route=?', (route,)).fetchone()
         sections.append({
             'number': index,
             'route': route,
             'label': ROUTE_LABELS[route],
             'keyword': KEYWORDS[route],
-            'total': total,
-            'last_scan': format_ist(latest['scanned_at']) if latest else 'No test runs yet',
-            'device': latest['device'] if latest else 'None',
-            'browser': latest['browser'] if latest else 'None'
+            'total': row['total']
         })
     return sections
 
 
+def render_test_scan(route):
+    db = get_db()
+    device, browser = detect_device_and_browser()
+    db.execute('''
+        INSERT INTO test_scans (route, scanned_at, visitor_hash, device, browser)
+        VALUES (?, ?, ?, ?, ?)
+    ''', (route, datetime.now(timezone.utc).isoformat(), visitor_hash(), device, browser))
+    db.commit()
+    return render_template('message.html', title=f'Test {ROUTE_LABELS[route]}', message=MESSAGES[route])
+
+
+@app.route('/register', methods=['GET', 'POST'])
+def register_team():
+    db = get_db()
+    error = None
+    success = False
+    temp_id = None
+    registered_team_number = None
+
+    current_team = get_team_from_cookie()
+    if current_team:
+        return render_template('register.html', success=True, temp_id='ALREADY REGISTERED', team_number=current_team['team_number'], available_teams=[])
+
+    if request.method == 'POST':
+        name = request.form.get('name', '').strip()
+        uucms = request.form.get('uucms', '').strip()
+        contact = request.form.get('contact', '').strip()
+        team_raw = request.form.get('team_number', '').strip()
+
+        try:
+            team_number = int(team_raw)
+        except ValueError:
+            team_number = 0
+
+        if not name or not uucms or not contact or team_number not in TEAM_SLOTS:
+            error = 'Please complete all four fields and choose a valid team number.'
+        else:
+            existing_team = db.execute('SELECT id FROM teams WHERE team_number=? AND active=1', (team_number,)).fetchone()
+            if existing_team:
+                error = f'Team {team_number} is already registered. Please choose another team.'
+            else:
+                raw_device_token = secrets.token_hex(32)
+                device_token_hash = hash_value(raw_device_token)
+                duplicate_device = db.execute('SELECT id FROM teams WHERE device_token_hash=? AND active=1', (device_token_hash,)).fetchone()
+                if duplicate_device:
+                    error = 'This phone is already registered to a team.'
+                else:
+                    temp_id = new_temp_id(team_number)
+                    temp_hash = hash_value(temp_id)
+                    try:
+                        db.execute('''
+                            INSERT INTO teams
+                            (team_number, name, uucms_number, contact_number, temp_id_hash, device_token_hash, registered_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ''', (
+                            team_number, name, uucms, contact, temp_hash,
+                            device_token_hash, datetime.now(timezone.utc).isoformat()
+                        ))
+                        db.commit()
+                        response = make_response(render_template(
+                            'register.html',
+                            success=True,
+                            temp_id=temp_id,
+                            team_number=team_number,
+                            available_teams=[]
+                        ))
+                        response.set_cookie(
+                            TEAM_COOKIE,
+                            raw_device_token,
+                            max_age=48 * 60 * 60,
+                            httponly=True,
+                            samesite='Lax',
+                            secure=request.is_secure
+                        )
+                        return response
+                    except sqlite3.IntegrityError:
+                        db.rollback()
+                        error = 'That team could not be registered. Please try another team.'
+
+    available = [n for n in TEAM_SLOTS if not db.execute('SELECT 1 FROM teams WHERE team_number=? AND active=1', (n,)).fetchone()]
+    return render_template('register.html', success=success, temp_id=temp_id, team_number=registered_team_number, available_teams=available, error=error)
+
+
+@app.route('/team')
+def team_status():
+    team = get_team_from_cookie()
+    if not team:
+        return team_gate_response()
+    return render_template('message.html', title=f'Team {team["team_number"]}', message=f'Team {team["team_number"]} is registered and this phone is authorised for the event.')
+
+
+# Test dashboards remain separate from live event access.
 @app.route('/wrong')
 def wrong_test_dashboard():
     return render_template('test_wrong.html', sections=get_test_sections(FAKE_ROUTES))
@@ -206,14 +317,14 @@ def clue_test_dashboard():
 def wrong_test_section(route):
     if route not in FAKE_ROUTES:
         return redirect('/wrong')
-    return render_scan(route, 'test_scans', test=True)
+    return render_test_scan(route)
 
 
 @app.route('/clue/<route>')
 def clue_test_section(route):
     if route not in CLUE_ROUTES:
         return redirect('/clue')
-    return render_scan(route, 'test_scans', test=True)
+    return render_test_scan(route)
 
 
 @app.route('/test/wrong')
@@ -223,12 +334,12 @@ def test_wrong():
 
 @app.route('/test/wrong2')
 def test_wrong2():
-    return render_scan('wrong2', 'test_scans', test=True)
+    return render_test_scan('wrong2')
 
 
 @app.route('/test/wrong3')
 def test_wrong3():
-    return render_scan('wrong3', 'test_scans', test=True)
+    return render_test_scan('wrong3')
 
 
 @app.route('/test/wrong/<route>')
@@ -243,17 +354,17 @@ def test_clue():
 
 @app.route('/test/clue2')
 def test_clue2():
-    return render_scan('clue2', 'test_scans', test=True)
+    return render_test_scan('clue2')
 
 
 @app.route('/test/clue3')
 def test_clue3():
-    return render_scan('clue3', 'test_scans', test=True)
+    return render_test_scan('clue3')
 
 
 @app.route('/test/clue4')
 def test_clue4():
-    return render_scan('clue4', 'test_scans', test=True)
+    return render_test_scan('clue4')
 
 
 @app.route('/test/clue/<route>')
@@ -261,39 +372,48 @@ def test_clue_section(route):
     return redirect('/clue/' + route)
 
 
+# Live event QR routes. A registered team phone is required.
+def live_event_scan(route):
+    team = get_team_from_cookie()
+    if not team:
+        return team_gate_response()
+    record_live_scan(route, team)
+    return render_template('message.html', title=ROUTE_LABELS[route], message=MESSAGES[route])
+
+
 @app.route('/event/wrong')
 def event_wrong():
-    return render_scan('wrong', 'event_scans')
+    return live_event_scan('wrong')
 
 
 @app.route('/event/wrong2')
 def event_wrong2():
-    return render_scan('wrong2', 'event_scans')
+    return live_event_scan('wrong2')
 
 
 @app.route('/event/wrong3')
 def event_wrong3():
-    return render_scan('wrong3', 'event_scans')
+    return live_event_scan('wrong3')
 
 
 @app.route('/event/clue')
 def event_clue():
-    return render_scan('clue', 'event_scans')
+    return live_event_scan('clue')
 
 
 @app.route('/event/clue2')
 def event_clue2():
-    return render_scan('clue2', 'event_scans')
+    return live_event_scan('clue2')
 
 
 @app.route('/event/clue3')
 def event_clue3():
-    return render_scan('clue3', 'event_scans')
+    return live_event_scan('clue3')
 
 
 @app.route('/event/clue4')
 def event_clue4():
-    return render_scan('clue4', 'event_scans')
+    return live_event_scan('clue4')
 
 
 @app.route('/admin/login', methods=['GET', 'POST'])
@@ -316,59 +436,54 @@ def admin_logout():
     return redirect('/admin/login')
 
 
-def get_event_dashboard_data():
+def get_live_dashboard_data():
     db = get_db()
-    totals = {}
-    uniques = {}
-    for route in ROUTES:
-        totals[route] = db.execute('SELECT COUNT(*) FROM event_scans WHERE route=?', (route,)).fetchone()[0]
-        uniques[route] = db.execute('SELECT COUNT(DISTINCT visitor_hash) FROM event_scans WHERE route=?', (route,)).fetchone()[0]
-
+    totals = {route: db.execute('SELECT COUNT(*) FROM live_scans WHERE route=?', (route,)).fetchone()[0] for route in ROUTES}
+    teams = []
+    for number in TEAM_SLOTS:
+        row = db.execute('''
+            SELECT id, team_number, name, uucms_number, contact_number
+            FROM teams WHERE team_number=? AND active=1
+        ''', (number,)).fetchone()
+        scan_count = db.execute('SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)).fetchone()[0]
+        teams.append({
+            'team_number': number,
+            'registered': bool(row),
+            'name': row['name'] if row else '',
+            'uucms': row['uucms_number'] if row else '',
+            'contact': row['contact_number'] if row else '',
+            'scan_count': scan_count
+        })
     recent = db.execute('''
-        SELECT route, visitor_hash, MAX(scanned_at) AS scanned_at,
-               COUNT(*) AS times_recorded, MAX(device) AS device, MAX(browser) AS browser
-        FROM event_scans
-        GROUP BY route, visitor_hash
-        ORDER BY MAX(id) DESC
-        LIMIT 50
+        SELECT team_number, route
+        FROM live_scans
+        ORDER BY id DESC
+        LIMIT 30
     ''').fetchall()
-    return totals, uniques, recent
+    return totals, teams, recent
 
 
 @app.route('/admin')
 @admin_required
 def admin_dashboard():
-    totals, uniques, recent = get_event_dashboard_data()
-    recent_display = [
-        {
-            'route': row['route'],
-            'scanned_at': format_ist(row['scanned_at']),
-            'device': row['device'],
-            'browser': row['browser'],
-            'times_recorded': row['times_recorded']
-        }
-        for row in recent
-    ]
-    return render_template('dashboard.html', totals=totals, uniques=uniques, recent=recent_display, route_labels=ROUTE_LABELS)
+    totals, teams, recent = get_live_dashboard_data()
+    return render_template(
+        'dashboard.html',
+        totals=totals,
+        teams=teams,
+        recent=[{'team_number': row['team_number'], 'route': row['route']} for row in recent],
+        route_labels=ROUTE_LABELS
+    )
 
 
 @app.route('/admin/stats')
 @admin_required
 def admin_stats():
-    totals, uniques, recent = get_event_dashboard_data()
+    totals, teams, recent = get_live_dashboard_data()
     return jsonify({
         'totals': totals,
-        'uniques': uniques,
-        'recent': [
-            {
-                'route': row['route'],
-                'scanned_at': format_ist(row['scanned_at']),
-                'device': row['device'],
-                'browser': row['browser'],
-                'times_recorded': row['times_recorded']
-            }
-            for row in recent
-        ]
+        'teams': teams,
+        'recent': [{'team_number': row['team_number'], 'route': row['route']} for row in recent]
     })
 
 
