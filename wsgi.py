@@ -21,4 +21,7 @@ import registration_override  # noqa: E402,F401
 # Upgrade the working camera scanner with live scan recording and admin sync.
 import live_scan_upgrade  # noqa: E402,F401
 
+# Add isolated editable QR response messages.
+import qr_messages_override  # noqa: E402,F401
+
 application = app
