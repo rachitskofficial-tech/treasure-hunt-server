@@ -12,4 +12,7 @@ import fake_routes  # noqa: E402,F401
 # Register participant routes on the same Flask application.
 import participant  # noqa: E402,F401
 
+# Register isolated camera diagnostic route.
+import camera_test  # noqa: E402,F401
+
 application = app
