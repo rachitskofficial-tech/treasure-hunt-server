@@ -6,6 +6,9 @@ app = app_module.app
 app_module.TEAM_SLOTS = tuple(range(1, 8))
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1)
 
+# Temporarily disable all clue QR/test routes. The original clue code stays in place for later re-enabling.
+import clue_hold  # noqa: E402,F401
+
 # Extend fake QR routes before participant.py snapshots the route constants.
 import fake_routes  # noqa: E402,F401
 
