@@ -5,7 +5,7 @@
 <div class="register-shell">
   <div class="eyebrow">NIKSHEPA Event Access</div>
   <h1 class="title">Register Your Team</h1>
-  <p class="subtitle">Seven temporary team slots are available. One phone is registered to each team and is the only device allowed to scan the live event QR codes for that team.</p>
+  <p class="subtitle">Seven team slots are available, Team 1 through Team 7. One phone is registered to each team and is the only device allowed to scan the live event QR codes for that team.</p>
 
   {% if success %}
     <div class="success">
@@ -26,7 +26,7 @@
         <div class="field full"><label for="contact">4. Contact Number</label><input id="contact" name="contact" required maxlength="20" inputmode="tel" autocomplete="tel"></div>
       </div>
       <button class="submit" type="submit">Generate Temporary Team ID</button>
-      <div class="note">Only seven teams can be registered. A team slot and phone registration cannot be reused after registration unless an administrator resets it.</div>
+      <div class="note">Seven teams can be registered. Team 7 is now included in the registration pool. A team slot and phone registration cannot be reused after registration unless an administrator resets it.</div>
     </form>
     {% if error %}<div class="error">{{ error }}</div>{% endif %}
   {% endif %}
