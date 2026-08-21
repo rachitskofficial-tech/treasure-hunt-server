@@ -1,4 +1,4 @@
-from flask import jsonify, request, redirect
+from flask import jsonify, request, redirect, render_template_string
 from app import app, get_db, admin_required, MESSAGES, ROUTES, ROUTE_LABELS, get_team_from_cookie, record_live_scan, team_gate_response
 
 
@@ -37,9 +37,43 @@ def live_event_scan_with_editable_message(route):
     if not team:
         return team_gate_response()
     record_live_scan(route, team)
-    return __import__('flask').render_template('message.html', title=ROUTE_LABELS[route], message=current_message(route))
+    return render_template('message.html', title=ROUTE_LABELS[route], message=current_message(route))
+
 
 for _route in ROUTES:
     _endpoint = f'event_{_route}'
     if _endpoint in app.view_functions:
         app.view_functions[_endpoint] = (lambda route: (lambda: live_event_scan_with_editable_message(route)))(_route)
+
+
+# Inject only the new QR-message editor into the existing admin dashboard.
+# The existing dashboard template and its other controls remain untouched.
+QR_EDITOR = r'''
+<style>
+.qr-editor-panel{margin-top:18px;border-radius:22px;padding:20px;background:#101827;border:1px solid #24314b}
+.qr-editor-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}
+.qr-editor-title{margin:0;color:#fff;font-size:22px;font-weight:900}.qr-editor-desc{margin:5px 0 0;color:#8f9ab5;font-size:11px;line-height:1.5}
+.qr-editor-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.qr-editor-item{padding:13px;border:1px solid #24314b;border-radius:15px;background:#0d1324}
+.qr-editor-label{display:block;color:#dce4f6;font-size:11px;font-weight:900;margin-bottom:8px}.qr-editor-input{width:100%;box-sizing:border-box;min-height:72px;resize:vertical;padding:10px;border-radius:10px;border:1px solid #2b3856;background:#080d18;color:#fff;font:inherit;font-size:12px;line-height:1.45}.qr-editor-actions{display:flex;justify-content:flex-end;margin-top:14px;gap:8px}.qr-editor-save{padding:11px 16px;border:1px solid #24513e;border-radius:11px;background:#173428;color:#7df2bd;font-weight:900;cursor:pointer}.qr-editor-status{font-size:10px;color:#7f8ba6;align-self:center}@media(max-width:760px){.qr-editor-grid{grid-template-columns:1fr}}
+</style>
+<section class="qr-editor-panel" id="qr-editor-panel">
+  <div class="qr-editor-head"><div><h2 class="qr-editor-title">✏️ QR Message Editor</h2><p class="qr-editor-desc">Change the message shown after a team scans each QR. QR links, routes and scan tracking are unchanged.</p></div></div>
+  <form method="post" action="/admin/qr-messages" id="qr-editor-form"><div class="qr-editor-grid" id="qr-editor-grid"><div class="qr-editor-item">Loading QR messages…</div></div><div class="qr-editor-actions"><span class="qr-editor-status" id="qr-editor-status"></span><button class="qr-editor-save" type="submit">Save QR Messages</button></div></form>
+</section>
+<script>
+(async()=>{const grid=document.getElementById('qr-editor-grid'),status=document.getElementById('qr-editor-status');try{const r=await fetch('/admin/qr-messages?ts='+Date.now(),{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw new Error();const data=await r.json();grid.innerHTML=Object.entries(data).map(([route,v])=>'<div class="qr-editor-item"><label class="qr-editor-label">'+v.label+'</label><textarea class="qr-editor-input" name="'+route+'" maxlength="500">'+String(v.message||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</textarea></div>').join('');status.textContent='Loaded';}catch(e){grid.innerHTML='<div class="qr-editor-item">Could not load QR messages. Refresh the admin panel.</div>';status.textContent='Load failed';}})();
+</script>
+'''
+
+
+@app.after_request
+def inject_qr_editor(response):
+    if request.path == '/admin' and response.content_type and 'text/html' in response.content_type and response.status_code == 200:
+        try:
+            body = response.get_data(as_text=True)
+            if 'id="qr-editor-panel"' not in body and '</body>' in body:
+                body = body.replace('</body>', QR_EDITOR + '</body>')
+                response.set_data(body)
+        except Exception:
+            pass
+    return response
