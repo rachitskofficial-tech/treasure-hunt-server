@@ -15,4 +15,7 @@ import participant  # noqa: E402,F401
 # Register isolated camera diagnostic route.
 import camera_test  # noqa: E402,F401
 
+# Replace the legacy registration handler with the UUCMS-free version.
+import registration_override  # noqa: E402,F401
+
 application = app
