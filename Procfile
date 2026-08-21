@@ -1,1 +1,1 @@
-web: gunicorn participant:app
+web: gunicorn wsgi:application
