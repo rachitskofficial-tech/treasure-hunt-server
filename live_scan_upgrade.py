@@ -43,22 +43,21 @@ app_module.record_live_scan = enhanced_record_live_scan
 
 
 def _resolve_route(raw_value):
-    """Turn the actual URL encoded in a QR into the dashboard route key."""
-    parsed = urlparse(raw_value)
-    path = parsed.path.rstrip('/') or '/'
+    """Resolve the route key from the actual QR payload, regardless of URL style."""
+    text = str(raw_value or '').strip()
+    parsed = urlparse(text)
+    path = parsed.path.rstrip('/')
 
-    # Accept both production QR formats:
-    #   https://.../event/wrong3
-    #   https://.../wrong3
-    if path.startswith('/event/'):
-        candidate = path.split('/event/', 1)[1].split('/', 1)[0]
-    elif path.startswith('/'):
-        candidate = path.lstrip('/').split('/', 1)[0]
-    else:
-        return None
+    # Direct route token, e.g. "wrong4".
+    if text in app_module.ROUTES:
+        return text
 
-    if candidate in app_module.ROUTES:
-        return candidate
+    # Accept /event/wrong4, /wrong4, /wrong/wrong4 and /test/wrong4.
+    segments = [segment for segment in path.split('/') if segment]
+    for segment in reversed(segments):
+        if segment in app_module.ROUTES:
+            return segment
+
     return None
 
 
@@ -75,17 +74,26 @@ def api_scan():
         return jsonify({'ok': False, 'error': 'EMPTY_QR'}), 400
 
     parsed = urlparse(raw_value)
-    if parsed.scheme not in ('http', 'https'):
+    # A normal QR is an HTTP(S) URL. A bare route token is accepted for generated
+    # event QR payloads and is converted to the current server URL below.
+    route = _resolve_route(raw_value)
+    if route is None and parsed.scheme not in ('http', 'https'):
         return jsonify({'ok': False, 'error': 'UNSUPPORTED_QR_TARGET'}), 400
 
-    route = _resolve_route(raw_value) or 'external'
-    enhanced_record_live_scan(route, team, raw_value)
+    target_url = raw_value
+    if route and parsed.scheme not in ('http', 'https'):
+        target_url = request.host_url.rstrip('/') + '/event/' + route
+    elif route and parsed.scheme in ('http', 'https') and parsed.netloc == request.host:
+        # Keep the QR's original path for navigation while normalising route identity.
+        target_url = raw_value
+
+    enhanced_record_live_scan(route or 'external', team, target_url)
     return jsonify({
         'ok': True,
         'team_number': team['team_number'],
         'temp_id': team['temp_id'] if 'temp_id' in team.keys() else None,
-        'route': route,
-        'target_url': raw_value
+        'route': route or 'external',
+        'target_url': target_url
     })
 
 
@@ -101,9 +109,7 @@ def enhanced_dashboard_data():
             SELECT id, team_number, name, uucms_number, contact_number, temp_id
             FROM teams WHERE team_number=? AND active=1
         ''', (number,)).fetchone()
-        scan_count = db.execute(
-            'SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)
-        ).fetchone()[0]
+        scan_count = db.execute('SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)).fetchone()[0]
         teams.append({
             'team_number': number,
             'registered': bool(row),
