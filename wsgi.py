@@ -27,4 +27,7 @@ import live_scan_upgrade  # noqa: E402,F401
 # Add isolated editable QR response messages.
 import qr_messages_override  # noqa: E402,F401
 
+# Harden admin authentication and disable caching for admin/event responses.
+import security_override  # noqa: E402,F401
+
 application = app
