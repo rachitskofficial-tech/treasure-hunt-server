@@ -24,7 +24,7 @@ def register_team():
     current = get_team_from_cookie()
     if current:
         response = make_response(render_template(
-            'register.html', success=True, temp_id='ALREADY REGISTERED',
+            'register.html', success=True, temp_id=current['temp_id'] if 'temp_id' in current.keys() and current['temp_id'] else 'ALREADY REGISTERED',
             team_number=current['team_number'], available_teams=[]
         ))
         response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
@@ -44,24 +44,22 @@ def register_team():
         # UUCMS is deliberately not read, checked, or required.
         if not name or not contact or team_number not in TEAM_SLOTS:
             error = 'Please complete Name, Team Number and Contact Number.'
-        elif db.execute(
-            'SELECT id FROM teams WHERE team_number=? AND active=1',
-            (team_number,)
-        ).fetchone():
+        elif db.execute('SELECT id FROM teams WHERE team_number=? AND active=1', (team_number,)).fetchone():
             error = f'Team {team_number} is already registered. Please choose another team.'
         else:
             raw_token = secrets.token_hex(32)
             temp_id = new_temp_id(team_number)
             try:
+                # live_scan_upgrade.py adds temp_id to existing databases before requests run.
                 db.execute('''
                     INSERT INTO teams
                     (team_number, name, uucms_number, contact_number,
-                     temp_id_hash, device_token_hash, registered_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                     temp_id_hash, device_token_hash, registered_at, temp_id)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 ''', (
                     team_number, name, '', contact,
                     hash_value(temp_id), hash_value(raw_token),
-                    datetime.now(timezone.utc).isoformat()
+                    datetime.now(timezone.utc).isoformat(), temp_id
                 ))
                 db.commit()
 
@@ -82,21 +80,10 @@ def register_team():
                 db.rollback()
                 error = 'That team could not be registered. Please try another team.'
 
-    available = [
-        number for number in TEAM_SLOTS
-        if not db.execute(
-            'SELECT 1 FROM teams WHERE team_number=? AND active=1',
-            (number,)
-        ).fetchone()
-    ]
-
+    available = [number for number in TEAM_SLOTS if not db.execute('SELECT 1 FROM teams WHERE team_number=? AND active=1', (number,)).fetchone()]
     response = make_response(render_template(
-        'register.html',
-        success=False,
-        temp_id=None,
-        team_number=None,
-        available_teams=available,
-        error=error
+        'register.html', success=False, temp_id=None, team_number=None,
+        available_teams=available, error=error
     ))
     response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
     response.headers['Pragma'] = 'no-cache'
