@@ -26,6 +26,15 @@ VALID_KEYWORDS = {'clue': KEYWORDS['clue'], 'clue2': KEYWORDS['clue2'], 'clue3':
 ALL_EVENT_ROUTES = set(VALID_CHECKPOINTS) | set(FAKE_ROUTES)
 
 
+def get_current_qr_message(route, fallback=None):
+    """Read the latest admin-edited QR message from the shared QR message store."""
+    try:
+        from qr_messages_override import current_message
+        return current_message(route)
+    except Exception:
+        return fallback if fallback is not None else MESSAGES.get(route, '')
+
+
 def ensure_participant_tables():
     db = get_db()
     db.execute('''CREATE TABLE IF NOT EXISTS checkpoint_clears (id INTEGER PRIMARY KEY AUTOINCREMENT, team_id INTEGER NOT NULL, team_number INTEGER NOT NULL, checkpoint_number INTEGER NOT NULL, route TEXT NOT NULL, cleared_at TEXT NOT NULL, UNIQUE(team_id, checkpoint_number))''')
@@ -109,7 +118,11 @@ def participant_scan_result():
     record_live_scan(route, team)
     db = ensure_participant_tables()
     if route in FAKE_ROUTES:
-        return jsonify({'ok': True, 'kind': 'bait', 'route': route, 'message': MESSAGES[route], 'keyword': KEYWORDS.get(route, ROUTE_LABELS[route]), 'progress': checkpoint_snapshot(team)})
+        message = get_current_qr_message(route, MESSAGES.get(route, ''))
+        response = jsonify({'ok': True, 'kind': 'bait', 'route': route, 'message': message, 'keyword': KEYWORDS.get(route, ROUTE_LABELS[route]), 'progress': checkpoint_snapshot(team)})
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        return response
     checkpoint_number = VALID_CHECKPOINTS[route]
     existing = db.execute('SELECT id FROM checkpoint_clears WHERE team_id=? AND checkpoint_number=?', (team['id'], checkpoint_number)).fetchone()
     newly_cleared = False
@@ -128,14 +141,15 @@ def participant_scan_result():
         db.execute('INSERT INTO team_finishes (team_id, team_number, completed_at, elapsed_seconds) VALUES (?, ?, ?, ?)', (team['id'], team['team_number'], finish_dt.isoformat(), elapsed))
         db.commit()
         progress = checkpoint_snapshot(team)
-    return jsonify({'ok': True, 'kind': 'valid', 'route': route, 'checkpoint': checkpoint_number, 'message': VALID_MESSAGES[route], 'keyword': VALID_KEYWORDS[route], 'newly_cleared': newly_cleared, 'progress': progress})
+    message = get_current_qr_message(route, VALID_MESSAGES.get(route, ''))
+    return jsonify({'ok': True, 'kind': 'valid', 'route': route, 'checkpoint': checkpoint_number, 'message': message, 'keyword': VALID_KEYWORDS[route], 'newly_cleared': newly_cleared, 'progress': progress})
 
 
 def generic_checkpoint(route):
     team = get_team_from_cookie()
     if not team:
         return render_template('message.html', title='Event Access Restricted', message=DENIED_MESSAGE), 403
-    return render_template('message.html', title=VALID_KEYWORDS[route], message=VALID_MESSAGES[route])
+    return render_template('message.html', title=VALID_KEYWORDS[route], message=get_current_qr_message(route, VALID_MESSAGES[route]))
 
 
 @app.route('/event/checkpoint5')
