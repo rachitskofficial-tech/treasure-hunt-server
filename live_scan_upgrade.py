@@ -26,8 +26,6 @@ def ensure_schema():
 def enhanced_record_live_scan(route, team, target_url=None):
     db = ensure_schema()
     temp_id = team['temp_id'] if 'temp_id' in team.keys() else None
-    if not target_url:
-        target_url = request.url
     device, browser = app_module.detect_device_and_browser()
     db.execute('''
         INSERT INTO live_scans
@@ -36,7 +34,7 @@ def enhanced_record_live_scan(route, team, target_url=None):
     ''', (
         team['id'], team['team_number'], route,
         datetime.now(timezone.utc).isoformat(), temp_id,
-        target_url, device, browser
+        target_url or request.url, device, browser
     ))
     db.commit()
 
@@ -45,17 +43,28 @@ app_module.record_live_scan = enhanced_record_live_scan
 
 
 def _resolve_route(raw_value):
+    """Turn the actual URL encoded in a QR into the dashboard route key."""
     parsed = urlparse(raw_value)
-    path = parsed.path.rstrip('/')
+    path = parsed.path.rstrip('/') or '/'
+
+    # Accept both production QR formats:
+    #   https://.../event/wrong3
+    #   https://.../wrong3
     if path.startswith('/event/'):
-        route = path.split('/event/', 1)[1].split('/', 1)[0]
-        if route in app_module.ROUTES:
-            return route
+        candidate = path.split('/event/', 1)[1].split('/', 1)[0]
+    elif path.startswith('/'):
+        candidate = path.lstrip('/').split('/', 1)[0]
+    else:
+        return None
+
+    if candidate in app_module.ROUTES:
+        return candidate
     return None
 
 
 @app_module.app.post('/api/scan')
 def api_scan():
+    """Record the scan first. The browser then navigates to the QR destination."""
     team = app_module.get_team_from_cookie()
     if not team:
         return jsonify({'ok': False, 'error': 'TEAM_NOT_REGISTERED'}), 403
@@ -92,7 +101,9 @@ def enhanced_dashboard_data():
             SELECT id, team_number, name, uucms_number, contact_number, temp_id
             FROM teams WHERE team_number=? AND active=1
         ''', (number,)).fetchone()
-        scan_count = db.execute('SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)).fetchone()[0]
+        scan_count = db.execute(
+            'SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)
+        ).fetchone()[0]
         teams.append({
             'team_number': number,
             'registered': bool(row),
