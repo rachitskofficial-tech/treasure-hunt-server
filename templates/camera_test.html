@@ -5,26 +5,27 @@
 <div class="scanner"><div class="eyebrow">NIKSHEPA QR Scanner</div><h1>📷 Scan QR Code</h1><p>Allow camera access, point the rear camera at a QR code and keep the code inside the frame.</p><div class="viewport"><video id="preview" autoplay playsinline muted></video><div class="frame"></div></div><div id="status" class="status">Ready. Press <strong>Start Scanner</strong>.</div><button id="start" class="btn">Start Scanner</button><button id="stop" class="btn hidden">Stop Scanner</button><div id="result" class="result hidden"></div><div id="details" class="details"></div></div>
 <script>
 const video=document.getElementById('preview'),status=document.getElementById('status'),details=document.getElementById('details'),start=document.getElementById('start'),stopBtn=document.getElementById('stop'),result=document.getElementById('result');
-let stream=null,detector=null,scanning=false,locked=false;
-function esc(text){return String(text).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+let stream=null, detector=null, scanning=false, locked=false;
 function stop(){scanning=false;if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}video.srcObject=null;start.classList.remove('hidden');stopBtn.classList.add('hidden');}
-async function recordAndRedirect(rawValue){
-  status.className='status';status.textContent='⏳ Recording scan…';
-  result.classList.remove('hidden');result.innerHTML='<strong>QR DETECTED</strong><br>'+esc(rawValue)+'<br><br>Recording this scan before opening the QR destination…';
+function esc(text){return String(text||'').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+async function recordAndNavigate(rawValue){
+  status.className='status';status.textContent='⏳ QR detected. Recording scan…';
   try{
-    const response=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({url:rawValue})});
+    const response=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'same-origin',cache:'no-store',body:JSON.stringify({url:rawValue,rawValue:rawValue})});
     const data=await response.json().catch(()=>({}));
-    if(!response.ok||!data.ok)throw new Error(data.error||'SCAN_RECORD_FAILED');
+    if(!response.ok||!data.ok) throw new Error(data.error||'SCAN_RECORD_FAILED');
+    result.classList.remove('hidden');
+    result.innerHTML='<strong>✅ SCAN RECORDED</strong><br>Team '+esc(data.team_number)+' · '+esc(data.temp_id||'Temporary ID unavailable')+'<br><small>Opening destination…</small>';
     status.className='status ok';status.textContent='✅ Scan recorded. Opening QR destination…';
-    details.textContent='Team: '+(data.team_number||'?')+'\nTemporary ID: '+(data.temp_id||'Legacy registration')+'\nRoute: '+(data.route||'external');
+    stop();
     setTimeout(()=>{window.location.assign(data.target_url||rawValue);},180);
   }catch(error){
-    locked=false;status.className='status bad';status.textContent='🔴 Scan was not recorded';details.textContent='Error: '+(error.message||String(error));result.innerHTML='<strong>QR DETECTED</strong><br>'+esc(rawValue)+'<br><br>Please try the scan again. The page was not opened because the server did not confirm the scan.';start.disabled=false;
+    locked=false;status.className='status bad';status.textContent='🔴 Scan was not recorded';details.textContent='Error: '+(error.message||String(error))+'\nThe QR was NOT opened so the event record is not lost.';start.disabled=false;scanning=false;
   }
 }
-function handleDetection(rawValue){if(locked||!rawValue)return;locked=true;stop();recordAndRedirect(rawValue);}
-async function loop(){if(!scanning||locked)return;try{const codes=await detector.detect(video);if(codes&&codes.length){handleDetection(codes[0].rawValue||'');return;}}catch(e){}requestAnimationFrame(loop);}
+function showResult(text){locked=true;recordAndNavigate(text);}
+async function loop(){if(!scanning||locked)return;try{const codes=await detector.detect(video);if(codes&&codes.length){const value=codes[0].rawValue||'';if(value)showResult(value);return;}}catch(e){}requestAnimationFrame(loop);}
 async function startScanner(){locked=false;result.classList.add('hidden');details.textContent='';status.className='status';status.textContent='Requesting camera permission…';start.disabled=true;try{if(!window.isSecureContext)throw new Error('Camera requires HTTPS.');if(!navigator.mediaDevices?.getUserMedia)throw new Error('Camera API unavailable.');if(!('BarcodeDetector' in window))throw new Error('QR_DECODER_UNAVAILABLE: This browser does not provide native QR detection.');const supported=await BarcodeDetector.getSupportedFormats();if(!supported.includes('qr_code'))throw new Error('QR_DECODER_UNAVAILABLE: QR format is not supported on this browser.');detector=new BarcodeDetector({formats:['qr_code']});stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:720}},audio:false});video.srcObject=stream;await video.play();const track=stream.getVideoTracks()[0],settings=track.getSettings?track.getSettings():{};details.textContent='Camera: '+(track.label||'Rear camera')+'\nResolution: '+(settings.width||'?')+' × '+(settings.height||'?')+'\nQR engine: Native BarcodeDetector';scanning=true;start.classList.add('hidden');stopBtn.classList.remove('hidden');status.className='status ok';status.textContent='🟢 Scanner active. Point at a QR code.';requestAnimationFrame(loop);}catch(error){status.className='status bad';status.textContent='🔴 Scanner could not start';details.textContent='Error: '+(error.name||'Unknown')+'\nMessage: '+(error.message||String(error));start.disabled=false;}}
-start.addEventListener('click',startScanner);stopBtn.addEventListener('click',()=>{locked=false;stop();status.className='status';status.textContent='Scanner stopped. Press Start Scanner to try again.'});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});window.addEventListener('beforeunload',stop);
+start.addEventListener('click',startScanner);stopBtn.addEventListener('click',()=>{locked=false;stop();start.disabled=false;status.className='status';status.textContent='Scanner stopped. Press Start Scanner to try again.'});document.addEventListener('visibilitychange',()=>{if(document.hidden)stop()});window.addEventListener('beforeunload',stop);
 </script>
 {% endblock %}
