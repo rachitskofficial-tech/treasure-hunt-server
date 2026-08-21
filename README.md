@@ -30,11 +30,11 @@ Open **Test clue QR** for the four clue test sections. All test runs stay in the
 | **Section 3** | **Magazine** | `/clue/clue3` |
 | **Section 4** | **Notice Board** | `/clue/clue4` |
 
-Every section keeps its own test-run history, last scan time, device, browser, and run count.
+Every section keeps its own test-run history and run count.
 
 ## 🏁 Live event QR routes
 
-The real QR codes use the same Render server with the `/event/...` routes. These write to `event_scans` and are the only scans shown in the admin dashboard.
+The real QR codes use the same Render server with the `/event/...` routes. Registered team phones create entries in the `live_scans` table, and those scans are shown in the admin command center.
 
 ### 🟢 Original Clues
 
@@ -53,6 +53,14 @@ The real QR codes use the same Render server with the `/event/...` routes. These
 | **Wrong QR 2** | **Keep Finding** | `/event/wrong2` |
 | **Wrong QR 3** | **Eureka? Nope** | `/event/wrong3` |
 
+## 📱 Participant QR Scanner
+
+Registered teams are authorised through a secure device cookie. After registration, the **Proceed to QR Scanner** button opens `/scan`.
+
+The scanner supports all 7 checkpoints and records every accepted scan through `/api/participant/scan`. Checkpoint progress is stored separately so repeated scans do not clear a checkpoint twice, while every scan remains visible in the live scan history.
+
+Team slots are **Team 1 through Team 7**.
+
 ## 🔐 Admin dashboard
 
 [**Open Treasure Hunt Control Room**](https://treasure-hunt-server.onrender.com/admin)
@@ -60,10 +68,11 @@ The real QR codes use the same Render server with the `/event/...` routes. These
 `/admin` contains only live event data:
 - 🟢 Original Clues
 - 🔴 Fake QRs
-- IST timestamps
-- Device and browser
-- Approximate unique visitors
-- Repeated scan counts (`Times Rec.`)
+- Team registration status for Teams 1–7
+- Per-team live scan counts
+- Live route totals
+- Recent live scan activity
+- Automatic dashboard updates every 2 seconds
 
 Test dashboards and test runs do **not** appear here.
 
@@ -84,19 +93,23 @@ pip install -r requirements.txt
 # export ADMIN_PASSWORD="your-dashboard-password"
 # export VISITOR_SALT="another-random-secret"
 
-python app.py
+# Recommended production-style local entry point:
+gunicorn wsgi:application
 ```
 
 ## Deploy publicly
-Use one Python-capable host such as Render for the entire application. Start command:
+Use one Python-capable host such as Render for the entire application.
 
+**Start command:**
 ```bash
-gunicorn app:app
+gunicorn wsgi:application
 ```
+
+The WSGI entry point is important because it loads both the main Flask application and the participant scanner routes, including `/scan` and `/api/participant/scan`, and enables Team 7.
 
 Set these environment variables on the host:
 - `SECRET_KEY`
 - `ADMIN_PASSWORD`
 - `VISITOR_SALT`
 
-For persistent live counts, the `event_scans` table should live on persistent disk or be replaced with a managed database such as PostgreSQL.
+For persistent live counts, the `live_scans` table should live on persistent disk or be replaced with a managed database such as PostgreSQL.
