@@ -41,8 +41,6 @@ def enhanced_record_live_scan(route, team, target_url=None):
     db.commit()
 
 
-# Existing /event/* handlers call app_module.record_live_scan by global lookup,
-# so replacing this function upgrades all existing event routes without creating duplicates.
 app_module.record_live_scan = enhanced_record_live_scan
 
 
@@ -53,15 +51,11 @@ def _resolve_route(raw_value):
         route = path.split('/event/', 1)[1].split('/', 1)[0]
         if route in app_module.ROUTES:
             return route
-    # Also accept a same-origin relative event URL.
-    if path.startswith('/event/'):
-        return path.rsplit('/', 1)[-1]
     return None
 
 
 @app_module.app.post('/api/scan')
 def api_scan():
-    """Record a scan from the working camera page, then let the client navigate to the QR target."""
     team = app_module.get_team_from_cookie()
     if not team:
         return jsonify({'ok': False, 'error': 'TEAM_NOT_REGISTERED'}), 403
@@ -75,12 +69,7 @@ def api_scan():
     if parsed.scheme not in ('http', 'https'):
         return jsonify({'ok': False, 'error': 'UNSUPPORTED_QR_TARGET'}), 400
 
-    route = _resolve_route(raw_value)
-    if route is None:
-        # The event scanner is still allowed to navigate to a normal HTTPS URL,
-        # but it is recorded under EXTERNAL so the dashboard never loses the scan.
-        route = 'external'
-
+    route = _resolve_route(raw_value) or 'external'
     enhanced_record_live_scan(route, team, raw_value)
     return jsonify({
         'ok': True,
@@ -103,9 +92,7 @@ def enhanced_dashboard_data():
             SELECT id, team_number, name, uucms_number, contact_number, temp_id
             FROM teams WHERE team_number=? AND active=1
         ''', (number,)).fetchone()
-        scan_count = db.execute(
-            'SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)
-        ).fetchone()[0]
+        scan_count = db.execute('SELECT COUNT(*) FROM live_scans WHERE team_number=?', (number,)).fetchone()[0]
         teams.append({
             'team_number': number,
             'registered': bool(row),
@@ -128,6 +115,22 @@ def enhanced_dashboard_data():
 app_module.get_live_dashboard_data = enhanced_dashboard_data
 
 
-# Ensure the migration happens at startup too, so the first dashboard request is clean.
+def enhanced_admin_stats():
+    totals, teams, recent = enhanced_dashboard_data()
+    return jsonify({
+        'totals': totals,
+        'teams': teams,
+        'recent': [{
+            'team_number': row['team_number'],
+            'temp_id': row['temp_id'] or 'Legacy registration',
+            'route': row['route'],
+            'scanned_at': row['scanned_at'],
+            'target_url': row['target_url'] or ''
+        } for row in recent]
+    })
+
+
+app_module.app.view_functions['admin_stats'] = app_module.admin_required(enhanced_admin_stats)
+
 with app_module.app.app_context():
     ensure_schema()
