@@ -48,11 +48,9 @@ def _resolve_route(raw_value):
     parsed = urlparse(text)
     path = parsed.path.rstrip('/')
 
-    # Direct route token, e.g. "wrong4".
     if text in app_module.ROUTES:
         return text
 
-    # Accept /event/wrong4, /wrong4, /wrong/wrong4 and /test/wrong4.
     segments = [segment for segment in path.split('/') if segment]
     for segment in reversed(segments):
         if segment in app_module.ROUTES:
@@ -74,8 +72,6 @@ def api_scan():
         return jsonify({'ok': False, 'error': 'EMPTY_QR'}), 400
 
     parsed = urlparse(raw_value)
-    # A normal QR is an HTTP(S) URL. A bare route token is accepted for generated
-    # event QR payloads and is converted to the current server URL below.
     route = _resolve_route(raw_value)
     if route is None and parsed.scheme not in ('http', 'https'):
         return jsonify({'ok': False, 'error': 'UNSUPPORTED_QR_TARGET'}), 400
@@ -84,7 +80,6 @@ def api_scan():
     if route and parsed.scheme not in ('http', 'https'):
         target_url = request.host_url.rstrip('/') + '/event/' + route
     elif route and parsed.scheme in ('http', 'https') and parsed.netloc == request.host:
-        # Keep the QR's original path for navigation while normalising route identity.
         target_url = raw_value
 
     enhanced_record_live_scan(route or 'external', team, target_url)
@@ -95,6 +90,37 @@ def api_scan():
         'route': route or 'external',
         'target_url': target_url
     })
+
+
+def fake_qr_stats(db):
+    """Return unique teams for each fake QR in first-scan order.
+
+    A team is counted once per fake QR. If it scans the same fake QR repeatedly,
+    only its earliest live_scans row is retained for the leaderboard. The lower
+    database id is the authoritative first-come-first-served order.
+    """
+    stats = {}
+    for route in app_module.FAKE_ROUTES:
+        rows = db.execute('''
+            SELECT team_number, temp_id, MIN(id) AS first_scan_id, MIN(scanned_at) AS first_scanned_at
+            FROM live_scans
+            WHERE route=?
+            GROUP BY team_id, team_number, temp_id
+            ORDER BY first_scan_id ASC
+        ''', (route,)).fetchall()
+        teams = [{
+            'team_number': row['team_number'],
+            'temp_id': row['temp_id'] or 'Legacy registration',
+            'first_scan_id': row['first_scan_id'],
+            'scanned_at': row['first_scanned_at']
+        } for row in rows]
+        stats[route] = {
+            'label': app_module.ROUTE_LABELS.get(route, route),
+            'keyword': app_module.KEYWORDS.get(route, route),
+            'count': len(teams),
+            'teams': teams
+        }
+    return stats
 
 
 def enhanced_dashboard_data():
@@ -134,9 +160,12 @@ app_module.get_live_dashboard_data = enhanced_dashboard_data
 
 def enhanced_admin_stats():
     totals, teams, recent = enhanced_dashboard_data()
+    db = ensure_schema()
+    fake_stats = fake_qr_stats(db)
     return jsonify({
         'totals': totals,
         'teams': teams,
+        'fake_stats': fake_stats,
         'recent': [{
             'team_number': row['team_number'],
             'temp_id': row['temp_id'] or 'Legacy registration',
