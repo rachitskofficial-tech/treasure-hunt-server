@@ -1,4 +1,4 @@
-from flask import jsonify, request, redirect, render_template_string
+from flask import jsonify, request, redirect, render_template
 from app import app, get_db, admin_required, MESSAGES, ROUTES, ROUTE_LABELS, get_team_from_cookie, record_live_scan, team_gate_response
 
 
@@ -12,8 +12,7 @@ def ensure_qr_messages():
 
 
 def current_message(route):
-    db = ensure_qr_messages()
-    row = db.execute('SELECT message FROM qr_messages WHERE route=?', (route,)).fetchone()
+    row = ensure_qr_messages().execute('SELECT message FROM qr_messages WHERE route=?', (route,)).fetchone()
     return row['message'] if row else MESSAGES.get(route, '')
 
 
@@ -24,9 +23,8 @@ def admin_qr_messages():
     if request.method == 'POST':
         for route in ROUTES:
             if route in request.form:
-                value = request.form.get(route, '').strip()
-                if value:
-                    db.execute('UPDATE qr_messages SET message=? WHERE route=?', (value, route))
+                # Empty text is a valid intentional message, so do not discard it.
+                db.execute('UPDATE qr_messages SET message=? WHERE route=?', (request.form.get(route, ''), route))
         db.commit()
         return redirect('/admin')
     return jsonify({route: {'label': ROUTE_LABELS.get(route, route), 'message': current_message(route)} for route in ROUTES})
@@ -37,17 +35,23 @@ def live_event_scan_with_editable_message(route):
     if not team:
         return team_gate_response()
     record_live_scan(route, team)
-    return render_template('message.html', title=ROUTE_LABELS[route], message=current_message(route))
+    response = render_template('message.html', title=ROUTE_LABELS[route], message=current_message(route))
+    # The response must always be generated from the current DB value, never a cached page.
+    from flask import make_response
+    response = make_response(response)
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    return response
 
 
+# Replace the live event endpoints with database-backed message responses.
 for _route in ROUTES:
     _endpoint = f'event_{_route}'
     if _endpoint in app.view_functions:
         app.view_functions[_endpoint] = (lambda route: (lambda: live_event_scan_with_editable_message(route)))(_route)
 
 
-# Inject only the new QR-message editor into the existing admin dashboard.
-# The existing dashboard template and its other controls remain untouched.
 QR_EDITOR = r'''
 <style>
 .qr-editor-panel{margin-top:18px;border-radius:22px;padding:20px;background:#101827;border:1px solid #24314b}
@@ -61,7 +65,7 @@ QR_EDITOR = r'''
   <form method="post" action="/admin/qr-messages" id="qr-editor-form"><div class="qr-editor-grid" id="qr-editor-grid"><div class="qr-editor-item">Loading QR messages…</div></div><div class="qr-editor-actions"><span class="qr-editor-status" id="qr-editor-status"></span><button class="qr-editor-save" type="submit">Save QR Messages</button></div></form>
 </section>
 <script>
-(async()=>{const grid=document.getElementById('qr-editor-grid'),status=document.getElementById('qr-editor-status');try{const r=await fetch('/admin/qr-messages?ts='+Date.now(),{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw new Error();const data=await r.json();grid.innerHTML=Object.entries(data).map(([route,v])=>'<div class="qr-editor-item"><label class="qr-editor-label">'+v.label+'</label><textarea class="qr-editor-input" name="'+route+'" maxlength="500">'+String(v.message||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')+'</textarea></div>').join('');status.textContent='Loaded';}catch(e){grid.innerHTML='<div class="qr-editor-item">Could not load QR messages. Refresh the admin panel.</div>';status.textContent='Load failed';}})();
+(async()=>{const grid=document.getElementById('qr-editor-grid'),status=document.getElementById('qr-editor-status');try{const r=await fetch('/admin/qr-messages?ts='+Date.now(),{cache:'no-store',credentials:'same-origin'});if(!r.ok)throw new Error();const data=await r.json();grid.innerHTML=Object.entries(data).map(([route,v])=>{const ta=document.createElement('textarea');ta.className='qr-editor-input';ta.name=route;ta.maxLength=500;ta.value=v.message||'';const item=document.createElement('div');item.className='qr-editor-item';const label=document.createElement('label');label.className='qr-editor-label';label.textContent=v.label;item.append(label,ta);return item;}).map(x=>x.outerHTML).join('');status.textContent='Loaded';}catch(e){grid.innerHTML='<div class="qr-editor-item">Could not load QR messages. Refresh the admin panel.</div>';status.textContent='Load failed';}})();
 </script>
 '''
 
