@@ -18,9 +18,6 @@ import participant  # noqa: E402,F401
 # Register isolated camera diagnostic route.
 import camera_test  # noqa: E402,F401
 
-# Replace the legacy registration handler with the UUCMS-free version.
-import registration_override  # noqa: E402,F401
-
 # Upgrade the working camera scanner with live scan recording and admin sync.
 import live_scan_upgrade  # noqa: E402,F401
 
@@ -29,5 +26,9 @@ import qr_messages_override  # noqa: E402,F401
 
 # Harden admin authentication and disable caching for admin/event responses.
 import security_override  # noqa: E402,F401
+
+# Retire the public registration and participant QR-camera flows without changing
+# the existing team/live-scan data model or admin QR editor.
+import registration_cleanup  # noqa: E402,F401
 
 application = app
